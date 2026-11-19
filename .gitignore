@@ -1,0 +1,22 @@
+# Môi trường ảo Python
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Biến môi trường
+.env
+
+# Cache file âm thanh tạm của edge-tts
+static/audio_cache/*.mp3
+!static/audio_cache/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

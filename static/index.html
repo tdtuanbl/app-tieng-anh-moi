@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Tiếng Anh Cho Bé Đậu</title>
+  
+  <!-- Cấu hình PWA & Safari iOS/iPadOS -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#F59E0B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Học Cùng Đậu">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥑</text></svg>">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Chống cuộn trang & hiệu ứng mượt mà trên iPad */
+    html, body {
+      overscroll-behavior: none;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+  </style>
+</head>
+<body class="h-full w-full bg-amber-50/40 text-slate-800 flex flex-col font-sans overflow-hidden">
+
+  <!-- LỚP PHỦ CHÀO MỪNG / MỞ KHÓA ÂM THANH SAFARI IPADOS -->
+  <div id="start-overlay" class="fixed inset-0 z-50 bg-gradient-to-br from-amber-400 via-amber-300 to-yellow-200 flex flex-col items-center justify-center p-6 select-none">
+    <div class="bg-white/95 backdrop-blur-md rounded-[3rem] p-8 md:p-10 max-w-lg w-full shadow-2xl border-4 border-amber-200 flex flex-col items-center text-center">
+      <div class="text-7xl md:text-8xl mb-4">🥑🌟</div>
+      <h1 class="text-3xl md:text-4xl font-black text-slate-800 mb-2">Tiếng Anh Cùng Đậu</h1>
+      <p class="text-lg font-bold text-slate-500 mb-8">Bé Đậu sẵn sàng vui học cùng bố chưa nào?</p>
+      <button onclick="unlockAudioAndStart()" class="w-full py-5 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-xl md:text-2xl shadow-xl shadow-amber-300/60 border-2 border-white flex items-center justify-center gap-3 transition-all">
+        <span>Chạm để bắt đầu cùng Đậu! 🚀</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TOP BAR CỐ ĐỊNH -->
+  <header class="h-20 px-6 bg-white/90 backdrop-blur-md border-b border-amber-100 flex items-center justify-between shadow-sm z-30 shrink-0">
+    <!-- Góc trái: Avatar + Lời chào + Đếm Sao -->
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-2xl shadow-sm border-2 border-white">
+        🌱
+      </div>
+      <div class="flex flex-col">
+        <span class="font-extrabold text-lg text-slate-800 tracking-tight flex items-center gap-1.5">
+          Xin chào Đậu! 🌟
+        </span>
+        <div class="flex items-center gap-1.5 bg-yellow-100/90 text-yellow-800 font-black text-sm px-3 py-0.5 rounded-full w-fit shadow-inner">
+          <span>⭐</span>
+          <span id="star-count">0</span>
+          <span class="text-xs font-semibold text-yellow-700">sao</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Góc phải: Nút gạt chế độ giọng nói + Nút về Trang chủ -->
+    <div class="flex items-center gap-3">
+      <button id="btn-voice-mode" onclick="AppState.toggleVoiceMode()" class="px-3.5 py-1.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95">
+        <span class="text-lg">🇻🇳+🇬🇧</span>
+        <span>Song ngữ</span>
+      </button>
+
+      <button id="btn-home" onclick="AppState.showScreen('screen-home')" class="px-4 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95">
+        <span class="text-lg">🏠</span>
+        <span>Trang chủ</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- VÙNG NỘI DUNG 4 MÀN HÌNH CHÍNH (TỐI ƯU MÀN HÌNH NGANG IPAD) -->
+  <main class="flex-1 w-full h-[calc(100%-5rem)] relative p-6 overflow-hidden">
+    
+    <!-- 1. Màn hình Trang Chủ -->
+    <section id="screen-home" class="w-full h-full flex flex-col items-center justify-center">
+      <!-- Nội dung các chủ đề và chế độ học sẽ được nạp tại đây -->
+    </section>
+
+    <!-- 2. Màn hình Học Flashcard -->
+    <section id="screen-learn" class="hidden w-full h-full flex flex-col">
+      <!-- Thẻ từ vựng tương tác lớn -->
+    </section>
+
+    <!-- 3. Màn hình Thử Thách Trắc Nghiệm -->
+    <section id="screen-quiz" class="hidden w-full h-full flex flex-col">
+      <!-- Đố vui nhận diện hình ảnh & từ vựng -->
+    </section>
+
+    <!-- 4. Màn hình Đua Xe Từ Vựng -->
+    <section id="screen-racer" class="hidden w-full h-full flex flex-col">
+      <!-- Trò chơi đua xe tương tác hứng sao -->
+    </section>
+
+  </main>
+
+  <!-- Script Khởi tạo -->
+  <script src="/static/js/state.js"></script>
+  <script src="/static/js/home.js"></script>
+  <script src="/static/js/learn.js"></script>
+  <script src="/static/js/quiz.js"></script>
+  <script src="/static/js/racer.js"></script>
+  <script>
+    // Mở khóa AudioContext và quyền phát âm thanh trên Safari iPadOS
+    function unlockAudioAndStart() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        ctx.resume();
+      }
+      const dummy = new Audio();
+      dummy.play().catch(() => {});
+
+      const overlay = document.getElementById("start-overlay");
+      if (overlay) {
+        overlay.classList.add("hidden");
+      }
+
+      if (window.AppState) {
+        AppState.speakText("Xin chào Đậu! Chúc Đậu học thật vui nhé!", "vi");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      AppState.init();
+    });
+  </script>
+</body>
+</html>
