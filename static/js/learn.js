@@ -5,10 +5,7 @@ const LearnScreen = {
   isListening: false,
   recognition: null,
   isSpeaking: false,
-  shouldListen: false,
   hasMatched: false,
-  listenStartTime: 0,
-  listenTimer: null,
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi!",
@@ -63,45 +60,46 @@ const LearnScreen = {
       if (!word) return;
       const target = word.en.toLowerCase().trim();
 
-      // Duyệt riêng rẽ từng alternative trong tất cả các kết quả (interim và final)
+      let latestTranscript = "";
+
+      // Duyệt riêng rẽ từng alternative trong tất cả các kết quả (cả interim và final)
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
         for (let j = 0; j < res.length; j++) {
           const candidate = res[j].transcript;
+          if (!latestTranscript && candidate.trim()) {
+            latestTranscript = candidate.trim();
+          }
           if (this.matchCandidate(candidate, target)) {
+            this.showTranscript(candidate.trim(), true);
             this.handleSuccess(word);
             return;
           }
         }
       }
+
+      if (latestTranscript) {
+        this.showTranscript(latestTranscript, false);
+      }
     };
 
     this.recognition.onerror = (event) => {
-      // Bỏ qua lỗi 'no-speech' nếu đang trong cửa sổ 6 giây để onend tự restart
-      if (event && event.error === "no-speech" && this.shouldListen && !this.hasMatched) {
-        return;
-      }
-      if (!this.shouldListen) {
-        this.isListening = false;
+      this.isListening = false;
+      const err = event && event.error ? event.error : "";
+      if (err === "not-allowed" || err === "service-not-allowed") {
+        this.showMicError("Bố hãy bấm nút 'aA' (hoặc biểu tượng Micro) trên thanh địa chỉ Safari và chọn Cho phép Micro nhé!");
+      } else if (err === "no-speech") {
+        this.updateMicUI(false);
+      } else {
         this.updateMicUI(false);
       }
     };
 
     this.recognition.onend = () => {
       this.isListening = false;
-      // Chống tự ngắt mic trên Safari iPad: tự động restart nếu chưa hết 6 giây và chưa khớp
-      if (this.shouldListen && !this.hasMatched) {
-        const elapsed = Date.now() - this.listenStartTime;
-        if (elapsed < 6000) {
-          setTimeout(() => {
-            if (this.shouldListen && !this.hasMatched) {
-              this.safeStartRecognition();
-            }
-          }, 150);
-          return;
-        }
+      if (!this.hasMatched) {
+        this.updateMicUI(false);
       }
-      this.updateMicUI(false);
     };
   },
 
@@ -206,6 +204,33 @@ const LearnScreen = {
     `;
   },
 
+  // Hiển thị trực quan transcript khi bé nói
+  showTranscript(text, isMatch) {
+    const box = document.getElementById("mic-status-box");
+    if (!box) return;
+    const styleClass = isMatch
+      ? "text-emerald-700 bg-emerald-50 border-emerald-300"
+      : "text-amber-800 bg-amber-50 border-amber-300";
+    box.innerHTML = `
+      <div class="px-6 py-2.5 rounded-full ${styleClass} border-2 shadow-sm flex items-center gap-2 text-lg font-black animate-pulse">
+        <span>🎙️</span>
+        <span>Đậu đang nói: "${text}"</span>
+      </div>
+    `;
+  },
+
+  // Hiển thị lỗi Micro minh bạch
+  showMicError(msg) {
+    const box = document.getElementById("mic-status-box");
+    if (!box) return;
+    box.innerHTML = `
+      <div class="px-5 py-3 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-800 text-sm md:text-base font-extrabold flex items-center gap-2 text-center shadow-md">
+        <span>⚠️</span>
+        <span>${msg}</span>
+      </div>
+    `;
+  },
+
   // Cập nhật giao diện sóng âm micro
   updateMicUI(active) {
     const box = document.getElementById("mic-status-box");
@@ -217,17 +242,29 @@ const LearnScreen = {
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-4 w-4 bg-rose-500"></span>
           </span>
-          <span class="font-black text-rose-600 text-lg">Đến lượt Đậu nói nào! 🎙️</span>
+          <span class="font-black text-rose-600 text-lg">Đậu nói đi, cô đang lắng nghe... 🎙️</span>
         </div>
       `;
     } else {
       box.innerHTML = `
-        <button onclick="LearnScreen.startListening()" class="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center gap-2 active:scale-95 transition-all">
+        <button onclick="LearnScreen.startListening()" class="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center gap-2 active:scale-95 transition-all shadow-sm">
           <span>🎙️</span>
           <span>Chạm vào đây để Đậu nói</span>
         </button>
       `;
     }
+  },
+
+  // Nút Micro sẵn sàng, nổi bật để bé chạm (chuẩn User Gesture Safari iOS)
+  readyForChildSpeech() {
+    const box = document.getElementById("mic-status-box");
+    if (!box) return;
+    box.innerHTML = `
+      <button onclick="LearnScreen.startListening()" class="px-8 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-black text-xl shadow-xl shadow-rose-300/60 animate-bounce active:scale-95 transition-all flex items-center gap-3 border-2 border-white">
+        <span class="text-2xl animate-pulse">🎙️</span>
+        <span>Bé Đậu chạm vào đây để nói</span>
+      </button>
+    `;
   },
 
   // Phát từ tiếng Anh và câu nhắc khi chạm vào thẻ
@@ -244,60 +281,53 @@ const LearnScreen = {
       await AppState.speakText("Đậu đọc lại cho cô nhé", "vi");
     } finally {
       this.isSpeaking = false;
-      // Giải phóng luồng âm thanh iPad (Chống Audio Session Lock): trễ 350ms rồi mới mở Micro
-      setTimeout(() => {
-        this.startListening();
-      }, 350);
+      // Chuyển nút Micro sang trạng thái sẵn sàng để bé chạm trực tiếp
+      this.readyForChildSpeech();
     }
   },
 
-  // Bật thu âm micro với cửa sổ lắng nghe tối thiểu 6 giây
+  // Bật thu âm micro trực tiếp từ thao tác chạm của bé (User Gesture)
   startListening() {
-    if (!this.recognition) return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      this.showMicError("Trình duyệt chưa hỗ trợ nhận diện giọng nói.");
+      return;
+    }
+
     this.hasMatched = false;
-    this.shouldListen = true;
-    this.listenStartTime = Date.now();
+    this.isListening = true;
 
-    if (this.listenTimer) {
-      clearTimeout(this.listenTimer);
-      this.listenTimer = null;
-    }
-
-    // Thiết lập cửa sổ lắng nghe tối thiểu 6 giây
-    this.listenTimer = setTimeout(() => {
-      if (!this.hasMatched && this.shouldListen) {
-        this.stopListening();
-        this.onListenTimeout();
-      }
-    }, 6000);
-
-    this.safeStartRecognition();
-  },
-
-  // Khởi chạy SpeechRecognition an toàn
-  safeStartRecognition() {
-    if (!this.recognition || !this.shouldListen || this.hasMatched) return;
     try {
+      if (!this.recognition) {
+        this.initRecognition();
+      }
       this.recognition.start();
+      this.updateMicUI(true);
     } catch (err) {
-      // Bỏ qua lỗi nếu đã start trước đó
+      if (err.name === "InvalidStateError") {
+        try {
+          this.recognition.abort();
+          setTimeout(() => {
+            try {
+              this.recognition.start();
+              this.updateMicUI(true);
+            } catch (e) {}
+          }, 100);
+        } catch (e) {}
+      } else {
+        console.warn("Lỗi startListening:", err);
+      }
     }
   },
 
-  // Dừng micro và giải phóng bộ đếm
+  // Dừng micro
   stopListening() {
-    this.shouldListen = false;
-    if (this.listenTimer) {
-      clearTimeout(this.listenTimer);
-      this.listenTimer = null;
-    }
+    this.isListening = false;
     if (this.recognition) {
       try {
         this.recognition.abort();
       } catch (e) {}
     }
-    this.isListening = false;
-    this.updateMicUI(false);
   },
 
   // Xử lý khi bé phát âm đúng
@@ -317,25 +347,6 @@ const LearnScreen = {
 
     this.showPraise(praise, true);
     AppState.speakText(praise, isBilingual ? "vi" : "en");
-  },
-
-  // Khi hết 6 giây mà bé chưa nói hoặc chưa khớp
-  async onListenTimeout() {
-    if (this.hasMatched || this.isSpeaking) return;
-    const encourageMsg = AppState.voiceMode === "bilingual" 
-      ? "Đậu đọc lại cùng cô nhé!" 
-      : "Try again, Đậu!";
-    
-    const box = document.getElementById("mic-status-box");
-    if (box) {
-      box.innerHTML = `
-        <div class="px-5 py-2 rounded-full bg-amber-50 border border-amber-300 text-amber-800 font-bold text-sm flex items-center gap-2">
-          <span>✨</span>
-          <span>${encourageMsg}</span>
-        </div>
-      `;
-    }
-    await AppState.speakText(encourageMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
   },
 
   // Khớp từng phương án dự phòng cho trẻ 5 tuổi
