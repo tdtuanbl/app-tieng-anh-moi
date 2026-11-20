@@ -33,32 +33,32 @@ const HomeScreen = {
 
       return `
         <div onclick="HomeScreen.openTopicModal('${topic.id}')"
-             class="group relative bg-white rounded-[2rem] p-5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center">
+             class="group relative bg-white rounded-[2rem] p-4 md:p-5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center">
           <!-- Icon lớn sắc nét -->
-          <div class="w-24 h-24 rounded-3xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-5xl shadow-sm mb-3 group-hover:scale-110 transition-transform">
+          <div class="w-20 h-20 md:w-22 md:h-22 rounded-3xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-4xl md:text-5xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
             ${topic.icon || '📚'}
           </div>
           
           <!-- Tên chủ đề -->
-          <h3 class="text-xl font-black text-slate-800 mb-2">${topic.title}</h3>
+          <h3 class="text-lg md:text-xl font-black text-slate-800 mb-1.5">${topic.title}</h3>
           
           <!-- Thanh tiến độ đã học -->
-          <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-200/80">
+          <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200/80">
             <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-300" style="width: ${percent}%"></div>
           </div>
-          <span class="text-xs font-bold text-slate-500 mt-2">Đã học: ${count}/${total} từ</span>
+          <span class="text-xs font-bold text-slate-500 mt-1">Đã học: ${count}/${total} từ</span>
         </div>
       `;
     }).join("");
 
     container.innerHTML = `
       <div class="w-full h-full flex flex-col justify-between max-w-6xl mx-auto py-2">
-        <div class="text-center mb-2">
+        <div class="text-center mb-1">
           <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Hôm nay bé Đậu muốn khám phá gì nào? 🚀</h2>
         </div>
 
-        <!-- Lưới thẻ chủ đề 4 cột cân đối trên iPad ngang -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 flex-1 items-center">
+        <!-- Lưới 6 thẻ chủ đề (2 hàng x 3 cột) cân đối trên iPad ngang -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 flex-1 items-center py-1">
           ${cardsHtml}
         </div>
 

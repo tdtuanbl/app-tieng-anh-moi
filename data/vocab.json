@@ -665,210 +665,436 @@
           "en": "table",
           "vi": "cái bàn",
           "visual": "🪵",
-          "image_url": "/static/images/table.jpg"
+          "image_url": "/static/images/table.png"
         },
         {
           "id": "chair",
           "en": "chair",
           "vi": "cái ghế",
           "visual": "🪑",
-          "image_url": "/static/images/chair.jpg"
+          "image_url": "/static/images/chair.png"
         },
         {
           "id": "bed",
           "en": "bed",
           "vi": "cái giường ngủ",
           "visual": "🛏️",
-          "image_url": "/static/images/bed.jpg"
+          "image_url": "/static/images/bed.png"
         },
         {
           "id": "door",
           "en": "door",
           "vi": "cửa ra vào",
           "visual": "🚪",
-          "image_url": "/static/images/door.jpg"
+          "image_url": "/static/images/door.png"
         },
         {
           "id": "window",
           "en": "window",
           "vi": "cửa sổ",
           "visual": "🪟",
-          "image_url": "/static/images/window.jpg"
+          "image_url": "/static/images/window.png"
         },
         {
           "id": "lamp",
           "en": "lamp",
           "vi": "đèn bàn / đèn ngủ",
           "visual": "💡",
-          "image_url": "/static/images/lamp.jpg"
+          "image_url": "/static/images/lamp.png"
         },
         {
           "id": "clock",
           "en": "clock",
           "vi": "đồng hồ treo tường",
           "visual": "⏰",
-          "image_url": "/static/images/clock.jpg"
+          "image_url": "/static/images/clock.png"
         },
         {
           "id": "television",
           "en": "television",
           "vi": "chiếc tivi",
           "visual": "📺",
-          "image_url": "/static/images/television.jpg"
+          "image_url": "/static/images/television.png"
         },
         {
           "id": "refrigerator",
           "en": "refrigerator",
           "vi": "tủ lạnh",
           "visual": "🧊",
-          "image_url": "/static/images/refrigerator.jpg"
+          "image_url": "/static/images/refrigerator.png"
         },
         {
           "id": "cup",
           "en": "cup",
           "vi": "cái cốc uống nước",
           "visual": "🥛",
-          "image_url": "/static/images/cup.jpg"
+          "image_url": "/static/images/cup.png"
         },
         {
           "id": "bowl",
           "en": "bowl",
           "vi": "cái bát ăn cơm",
           "visual": "🥣",
-          "image_url": "/static/images/bowl.jpg"
+          "image_url": "/static/images/bowl.png"
         },
         {
           "id": "spoon",
           "en": "spoon",
           "vi": "cái thìa nhỏ",
           "visual": "🥄",
-          "image_url": "/static/images/spoon.jpg"
+          "image_url": "/static/images/spoon.png"
         },
         {
           "id": "fork",
           "en": "fork",
           "vi": "cái nĩa",
           "visual": "🍴",
-          "image_url": "/static/images/fork.jpg"
+          "image_url": "/static/images/fork.png"
         },
         {
           "id": "plate",
           "en": "plate",
           "vi": "cái đĩa đựng thức ăn",
           "visual": "🍽️",
-          "image_url": "/static/images/plate.jpg"
+          "image_url": "/static/images/plate.png"
         },
         {
           "id": "bottle",
           "en": "bottle",
           "vi": "bình nước của bé",
           "visual": "🍼",
-          "image_url": "/static/images/bottle.jpg"
+          "image_url": "/static/images/bottle.png"
         },
         {
           "id": "pillow",
           "en": "pillow",
           "vi": "chiếc gối êm",
           "visual": "🛋️",
-          "image_url": "/static/images/pillow.jpg"
+          "image_url": "/static/images/pillow.png"
         },
         {
           "id": "blanket",
           "en": "blanket",
           "vi": "cái chăn ấm",
           "visual": "🧶",
-          "image_url": "/static/images/blanket.jpg"
+          "image_url": "/static/images/blanket.png"
         },
         {
           "id": "fan",
           "en": "fan",
           "vi": "quạt máy mát mẻ",
           "visual": "🪭",
-          "image_url": "/static/images/fan.jpg"
+          "image_url": "/static/images/fan.png"
         },
         {
           "id": "mirror",
           "en": "mirror",
           "vi": "gương soi",
           "visual": "🪞",
-          "image_url": "/static/images/mirror.jpg"
+          "image_url": "/static/images/mirror.png"
         },
         {
           "id": "toothbrush",
           "en": "toothbrush",
           "vi": "bàn chải đánh răng",
           "visual": "🪥",
-          "image_url": "/static/images/toothbrush.jpg"
+          "image_url": "/static/images/toothbrush.png"
         },
         {
           "id": "toothpaste",
           "en": "toothpaste",
           "vi": "kem đánh răng",
           "visual": "🧴",
-          "image_url": "/static/images/toothpaste.jpg"
+          "image_url": "/static/images/toothpaste.png"
         },
         {
           "id": "soap",
           "en": "soap",
           "vi": "bánh xà phòng thơm",
           "visual": "🧼",
-          "image_url": "/static/images/soap.jpg"
+          "image_url": "/static/images/soap.png"
         },
         {
           "id": "towel",
           "en": "towel",
           "vi": "khăn lau mềm mại",
           "visual": "🧖",
-          "image_url": "/static/images/towel.jpg"
+          "image_url": "/static/images/towel.png"
         },
         {
           "id": "telephone",
           "en": "telephone",
           "vi": "điện thoại bàn",
           "visual": "☎️",
-          "image_url": "/static/images/telephone.jpg"
+          "image_url": "/static/images/telephone.png"
         },
         {
           "id": "computer",
           "en": "computer",
           "vi": "máy vi tính",
           "visual": "💻",
-          "image_url": "/static/images/computer.jpg"
+          "image_url": "/static/images/computer.png"
         },
         {
           "id": "book",
           "en": "book",
           "vi": "cuốn sách tranh",
           "visual": "📖",
-          "image_url": "/static/images/book.jpg"
+          "image_url": "/static/images/book.png"
         },
         {
           "id": "broom",
           "en": "broom",
           "vi": "cây chổi quét nhà",
           "visual": "🧹",
-          "image_url": "/static/images/broom.jpg"
+          "image_url": "/static/images/broom.png"
         },
         {
           "id": "trash_can",
           "en": "trash can",
           "vi": "thùng rác sạch sẽ",
           "visual": "🗑️",
-          "image_url": "/static/images/trash_can.jpg"
+          "image_url": "/static/images/trash_can.png"
         },
         {
           "id": "pot",
           "en": "pot",
           "vi": "cái nồi nấu canh",
           "visual": "🍲",
-          "image_url": "/static/images/pot.jpg"
+          "image_url": "/static/images/pot.png"
         },
         {
           "id": "key",
           "en": "key",
           "vi": "chìa khóa cửa",
           "visual": "🔑",
-          "image_url": "/static/images/key.jpg"
+          "image_url": "/static/images/key.png"
+        }
+      ]
+    },
+    {
+      "id": "fruits_food",
+      "title": "Trái cây & Đồ ăn",
+      "icon": "🍎",
+      "color": "bg-orange-100 text-orange-800",
+      "words": [
+        {
+          "id": "apple",
+          "en": "apple",
+          "vi": "quả táo",
+          "visual": "🍎",
+          "image_url": "/static/images/apple.png"
+        },
+        {
+          "id": "banana",
+          "en": "banana",
+          "vi": "quả chuối",
+          "visual": "🍌",
+          "image_url": "/static/images/banana.png"
+        },
+        {
+          "id": "orange",
+          "en": "orange",
+          "vi": "quả cam",
+          "visual": "🍊",
+          "image_url": "/static/images/orange.png"
+        },
+        {
+          "id": "watermelon",
+          "en": "watermelon",
+          "vi": "dưa hấu",
+          "visual": "🍉",
+          "image_url": "/static/images/watermelon.png"
+        },
+        {
+          "id": "strawberry",
+          "en": "strawberry",
+          "vi": "dâu tây",
+          "visual": "🍓",
+          "image_url": "/static/images/strawberry.png"
+        },
+        {
+          "id": "grape",
+          "en": "grape",
+          "vi": "quả nho",
+          "visual": "🍇",
+          "image_url": "/static/images/grape.png"
+        },
+        {
+          "id": "mango",
+          "en": "mango",
+          "vi": "quả xoài",
+          "visual": "🥭",
+          "image_url": "/static/images/mango.png"
+        },
+        {
+          "id": "pineapple",
+          "en": "pineapple",
+          "vi": "quả dứa",
+          "visual": "🍍",
+          "image_url": "/static/images/pineapple.png"
+        },
+        {
+          "id": "milk",
+          "en": "milk",
+          "vi": "sữa",
+          "visual": "🥛",
+          "image_url": "/static/images/milk.png"
+        },
+        {
+          "id": "bread",
+          "en": "bread",
+          "vi": "bánh mì",
+          "visual": "🍞",
+          "image_url": "/static/images/bread.png"
+        },
+        {
+          "id": "egg",
+          "en": "egg",
+          "vi": "quả trứng",
+          "visual": "🥚",
+          "image_url": "/static/images/egg.png"
+        },
+        {
+          "id": "rice",
+          "en": "rice",
+          "vi": "cơm",
+          "visual": "🍚",
+          "image_url": "/static/images/rice.png"
+        },
+        {
+          "id": "cake",
+          "en": "cake",
+          "vi": "bánh kem",
+          "visual": "🎂",
+          "image_url": "/static/images/cake.png"
+        },
+        {
+          "id": "ice_cream",
+          "en": "ice cream",
+          "vi": "kem",
+          "visual": "🍦",
+          "image_url": "/static/images/ice_cream.png"
+        },
+        {
+          "id": "water",
+          "en": "water",
+          "vi": "nước",
+          "visual": "💧",
+          "image_url": "/static/images/water.png"
+        }
+      ]
+    },
+    {
+      "id": "nature",
+      "title": "Thiên nhiên",
+      "icon": "🌈",
+      "color": "bg-teal-100 text-teal-800",
+      "words": [
+        {
+          "id": "tree",
+          "en": "tree",
+          "vi": "cây",
+          "visual": "🌳",
+          "image_url": "/static/images/tree.png"
+        },
+        {
+          "id": "sun",
+          "en": "sun",
+          "vi": "mặt trời",
+          "visual": "☀️",
+          "image_url": "/static/images/sun.png"
+        },
+        {
+          "id": "moon",
+          "en": "moon",
+          "vi": "mặt trăng",
+          "visual": "🌙",
+          "image_url": "/static/images/moon.png"
+        },
+        {
+          "id": "star",
+          "en": "star",
+          "vi": "ngôi sao",
+          "visual": "⭐",
+          "image_url": "/static/images/star.png"
+        },
+        {
+          "id": "cloud",
+          "en": "cloud",
+          "vi": "đám mây",
+          "visual": "☁️",
+          "image_url": "/static/images/cloud.png"
+        },
+        {
+          "id": "rain",
+          "en": "rain",
+          "vi": "cơn mưa",
+          "visual": "🌧️",
+          "image_url": "/static/images/rain.png"
+        },
+        {
+          "id": "flower",
+          "en": "flower",
+          "vi": "bông hoa",
+          "visual": "🌸",
+          "image_url": "/static/images/flower.png"
+        },
+        {
+          "id": "leaf",
+          "en": "leaf",
+          "vi": "chiếc lá",
+          "visual": "🍃",
+          "image_url": "/static/images/leaf.png"
+        },
+        {
+          "id": "rainbow",
+          "en": "rainbow",
+          "vi": "cầu vồng",
+          "visual": "🌈",
+          "image_url": "/static/images/rainbow.png"
+        },
+        {
+          "id": "mountain",
+          "en": "mountain",
+          "vi": "ngọn núi",
+          "visual": "⛰️",
+          "image_url": "/static/images/mountain.png"
+        },
+        {
+          "id": "river",
+          "en": "river",
+          "vi": "dòng sông",
+          "visual": "🏞️",
+          "image_url": "/static/images/river.png"
+        },
+        {
+          "id": "sea",
+          "en": "sea",
+          "vi": "biển",
+          "visual": "🌊",
+          "image_url": "/static/images/sea.png"
+        },
+        {
+          "id": "wind",
+          "en": "wind",
+          "vi": "gió",
+          "visual": "💨",
+          "image_url": "/static/images/wind.png"
+        },
+        {
+          "id": "fire",
+          "en": "fire",
+          "vi": "ngọn lửa",
+          "visual": "🔥",
+          "image_url": "/static/images/fire.png"
+        },
+        {
+          "id": "grass",
+          "en": "grass",
+          "vi": "bãi cỏ",
+          "visual": "🌿",
+          "image_url": "/static/images/grass.png"
         }
       ]
     }
