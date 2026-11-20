@@ -33,9 +33,6 @@ const LearnScreen = {
     this.currentIndex = 0;
     this.initRecognition();
     this.render();
-    setTimeout(() => {
-      this.playPrompt();
-    }, 400);
   },
 
   // Khởi tạo nhận diện giọng nói
@@ -201,23 +198,20 @@ const LearnScreen = {
     }
   },
 
-  // Phát lời dẫn & từ vựng theo voiceMode
+  // Phát từ tiếng Anh và câu nhắc khi chạm vào thẻ
   async playPrompt() {
     if (this.isSpeaking) return;
     this.isSpeaking = true;
     const word = this.words[this.currentIndex];
 
     try {
-      if (AppState.voiceMode === "bilingual") {
-        await AppState.speakText(`Đậu ơi, đây là ${word.vi}:`, "vi");
-        await AppState.speakText(word.en, "en");
-        await AppState.speakText("Đậu đọc lại nhé!", "vi");
-      } else {
-        await AppState.speakText(`Look Đậu! It's a ${word.en}. Your turn!`, "en");
-      }
+      // Bước A: Phát âm từ tiếng Anh (ví dụ: "Dog")
+      await AppState.speakText(word.en, "en");
+      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt ngắn gọn: "Đậu đọc lại cho cô nhé"
+      await AppState.speakText("Đậu đọc lại cho cô nhé", "vi");
     } finally {
       this.isSpeaking = false;
-      // Tự động mở Micro mời bé nói
+      // Bước C: Ngay sau khi câu tiếng Việt vừa dứt, tự động kích hoạt Micro chờ bé Đậu đọc lại
       this.startListening();
     }
   },
@@ -332,7 +326,6 @@ const LearnScreen = {
     if (this.currentIndex < this.words.length - 1) {
       this.currentIndex++;
       this.render();
-      setTimeout(() => this.playPrompt(), 300);
     } else {
       // Đã học hết chủ đề
       AppState.speakText("Chúc mừng Đậu đã hoàn thành tất cả từ vựng!", "vi");
@@ -345,7 +338,6 @@ const LearnScreen = {
     if (this.currentIndex > 0) {
       this.currentIndex--;
       this.render();
-      setTimeout(() => this.playPrompt(), 300);
     }
   }
 };
