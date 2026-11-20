@@ -1,11 +1,9 @@
-// Màn hình Học từ vựng & Luyện phát âm cho bé Đậu
+// Màn hình Học từ vựng cho bé Đậu
 const LearnScreen = {
   currentIndex: 0,
   words: [],
-  isListening: false,
-  recognition: null,
   isSpeaking: false,
-  hasMatched: false,
+  playSequence: 0,
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi!",
@@ -32,75 +30,10 @@ const LearnScreen = {
     }
     this.words = AppState.currentTopic.words;
     this.currentIndex = 0;
-    this.stopListening();
-    this.initRecognition();
+    this.isSpeaking = false;
+    this.playSequence = 0;
+    AppState.stopAudio();
     this.render();
-  },
-
-  // Khởi tạo nhận diện giọng nói
-  initRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn("Trình duyệt không hỗ trợ Web Speech API.");
-      return;
-    }
-    this.recognition = new SpeechRecognition();
-    this.recognition.lang = "en-US";
-    this.recognition.interimResults = true;
-    this.recognition.maxAlternatives = 5;
-
-    this.recognition.onstart = () => {
-      this.isListening = true;
-      this.updateMicUI(true);
-    };
-
-    this.recognition.onresult = (event) => {
-      if (this.hasMatched) return;
-      const word = this.words[this.currentIndex];
-      if (!word) return;
-      const target = word.en.toLowerCase().trim();
-
-      let latestTranscript = "";
-
-      // Duyệt riêng rẽ từng alternative trong tất cả các kết quả (cả interim và final)
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const res = event.results[i];
-        for (let j = 0; j < res.length; j++) {
-          const candidate = res[j].transcript;
-          if (!latestTranscript && candidate.trim()) {
-            latestTranscript = candidate.trim();
-          }
-          if (this.matchCandidate(candidate, target)) {
-            this.showTranscript(candidate.trim(), true);
-            this.handleSuccess(word);
-            return;
-          }
-        }
-      }
-
-      if (latestTranscript) {
-        this.showTranscript(latestTranscript, false);
-      }
-    };
-
-    this.recognition.onerror = (event) => {
-      this.isListening = false;
-      const err = event && event.error ? event.error : "";
-      if (err === "not-allowed" || err === "service-not-allowed") {
-        this.showMicError("Bố hãy bấm nút 'aA' (hoặc biểu tượng Micro) trên thanh địa chỉ Safari và chọn Cho phép Micro nhé!");
-      } else if (err === "no-speech") {
-        this.updateMicUI(false);
-      } else {
-        this.updateMicUI(false);
-      }
-    };
-
-    this.recognition.onend = () => {
-      this.isListening = false;
-      if (!this.hasMatched) {
-        this.updateMicUI(false);
-      }
-    };
   },
 
   // Hiển thị giao diện màn hình học
@@ -164,11 +97,11 @@ const LearnScreen = {
             </p>
           </div>
 
-          <!-- KHU VỰC HIỆU ỨNG SÓNG ÂM MICRO -->
-          <div id="mic-status-box" class="h-16 flex items-center justify-center mt-3">
-            <button onclick="LearnScreen.startListening()" class="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center gap-2 active:scale-95 transition-all">
-              <span>🎙️</span>
-              <span>Chạm để Đậu nói</span>
+          <!-- NÚT XÁC NHẬN CHO BA MẸ: CHÍNH XÁC -->
+          <div class="h-16 flex items-center justify-center mt-3">
+            <button onclick="LearnScreen.confirmCorrect()" class="px-8 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-xl md:text-2xl shadow-lg shadow-emerald-200/60 flex items-center gap-3 transition-all border-2 border-white">
+              <span>✅</span>
+              <span>Chính xác</span>
             </button>
           </div>
         </div>
@@ -204,139 +137,39 @@ const LearnScreen = {
     `;
   },
 
-  // Hiển thị trực quan transcript khi bé nói
-  showTranscript(text, isMatch) {
-    const box = document.getElementById("mic-status-box");
-    if (!box) return;
-    const styleClass = isMatch
-      ? "text-emerald-700 bg-emerald-50 border-emerald-300"
-      : "text-amber-800 bg-amber-50 border-amber-300";
-    box.innerHTML = `
-      <div class="px-6 py-2.5 rounded-full ${styleClass} border-2 shadow-sm flex items-center gap-2 text-lg font-black animate-pulse">
-        <span>🎙️</span>
-        <span>Đậu đang nói: "${text}"</span>
-      </div>
-    `;
-  },
-
-  // Hiển thị lỗi Micro minh bạch
-  showMicError(msg) {
-    const box = document.getElementById("mic-status-box");
-    if (!box) return;
-    box.innerHTML = `
-      <div class="px-5 py-3 rounded-2xl bg-rose-50 border-2 border-rose-400 text-rose-800 text-sm md:text-base font-extrabold flex items-center gap-2 text-center shadow-md">
-        <span>⚠️</span>
-        <span>${msg}</span>
-      </div>
-    `;
-  },
-
-  // Cập nhật giao diện sóng âm micro
-  updateMicUI(active) {
-    const box = document.getElementById("mic-status-box");
-    if (!box) return;
-    if (active) {
-      box.innerHTML = `
-        <div class="flex items-center gap-3 px-6 py-2.5 rounded-full bg-rose-50 border-2 border-rose-300 shadow-sm animate-pulse">
-          <span class="relative flex h-4 w-4">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-4 w-4 bg-rose-500"></span>
-          </span>
-          <span class="font-black text-rose-600 text-lg">Đậu nói đi, cô đang lắng nghe... 🎙️</span>
-        </div>
-      `;
-    } else {
-      box.innerHTML = `
-        <button onclick="LearnScreen.startListening()" class="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center gap-2 active:scale-95 transition-all shadow-sm">
-          <span>🎙️</span>
-          <span>Chạm vào đây để Đậu nói</span>
-        </button>
-      `;
-    }
-  },
-
-  // Nút Micro sẵn sàng, nổi bật để bé chạm (chuẩn User Gesture Safari iOS)
-  readyForChildSpeech() {
-    const box = document.getElementById("mic-status-box");
-    if (!box) return;
-    box.innerHTML = `
-      <button onclick="LearnScreen.startListening()" class="px-8 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-black text-xl shadow-xl shadow-rose-300/60 animate-bounce active:scale-95 transition-all flex items-center gap-3 border-2 border-white">
-        <span class="text-2xl animate-pulse">🎙️</span>
-        <span>Bé Đậu chạm vào đây để nói</span>
-      </button>
-    `;
-  },
-
   // Phát từ tiếng Anh và câu nhắc khi chạm vào thẻ
   async playPrompt() {
-    if (this.isSpeaking) return;
+    const currentSeq = ++this.playSequence;
     this.isSpeaking = true;
-    this.stopListening();
+    AppState.stopAudio();
+
     const word = this.words[this.currentIndex];
+    if (!word) return;
 
     try {
       // Bước A: Phát âm từ tiếng Anh (ví dụ: "Dog")
       await AppState.speakText(word.en, "en");
+      if (this.playSequence !== currentSeq) return;
+
       // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt ngắn gọn: "Đậu đọc lại cho cô nhé"
       await AppState.speakText("Đậu đọc lại cho cô nhé", "vi");
     } finally {
-      this.isSpeaking = false;
-      // Chuyển nút Micro sang trạng thái sẵn sàng để bé chạm trực tiếp
-      this.readyForChildSpeech();
-    }
-  },
-
-  // Bật thu âm micro trực tiếp từ thao tác chạm của bé (User Gesture)
-  startListening() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      this.showMicError("Trình duyệt chưa hỗ trợ nhận diện giọng nói.");
-      return;
-    }
-
-    this.hasMatched = false;
-    this.isListening = true;
-
-    try {
-      if (!this.recognition) {
-        this.initRecognition();
-      }
-      this.recognition.start();
-      this.updateMicUI(true);
-    } catch (err) {
-      if (err.name === "InvalidStateError") {
-        try {
-          this.recognition.abort();
-          setTimeout(() => {
-            try {
-              this.recognition.start();
-              this.updateMicUI(true);
-            } catch (e) {}
-          }, 100);
-        } catch (e) {}
-      } else {
-        console.warn("Lỗi startListening:", err);
+      if (this.playSequence === currentSeq) {
+        this.isSpeaking = false;
       }
     }
   },
 
-  // Dừng micro
-  stopListening() {
-    this.isListening = false;
-    if (this.recognition) {
-      try {
-        this.recognition.abort();
-      } catch (e) {}
-    }
-  },
+  // Xử lý khi ba mẹ bấm nút Chính xác
+  async confirmCorrect() {
+    const word = this.words[this.currentIndex];
+    if (!word) return;
 
-  // Xử lý khi bé phát âm đúng
-  handleSuccess(word) {
-    if (this.hasMatched) return;
-    this.hasMatched = true;
-    this.stopListening();
+    // Ngắt âm thanh đang đọc từ dở nếu có
+    AppState.stopAudio();
+    this.isSpeaking = false;
 
-    // Đọc đúng: Cộng sao & lưu tiến trình
+    // Cộng sao & lưu tiến trình
     AppState.addStars(1);
     this.saveWordLearned(word.id);
 
@@ -345,66 +178,8 @@ const LearnScreen = {
     const praises = isBilingual ? this.VI_PRAISES : this.EN_PRAISES;
     const praise = praises[Math.floor(Math.random() * praises.length)];
 
-    this.showPraise(praise, true);
-    AppState.speakText(praise, isBilingual ? "vi" : "en");
-  },
-
-  // Khớp từng phương án dự phòng cho trẻ 5 tuổi
-  matchCandidate(candidate, target) {
-    if (!candidate || !target) return false;
-    const cleanCand = candidate.toLowerCase().trim();
-    const cleanTarget = target.toLowerCase().trim();
-
-    // Tách thành các từ nếu bé nói cả cụm (ví dụ: "a dog", "it's cat")
-    const words = cleanCand.replace(/[^a-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
-    if (words.length === 0) return false;
-
-    // Kiểm tra toàn bộ chuỗi
-    if (this.fuzzyMatchWord(cleanCand.replace(/[^a-z0-9]/g, ""), cleanTarget)) {
-      return true;
-    }
-    // Kiểm tra từng từ đơn
-    for (const w of words) {
-      if (this.fuzzyMatchWord(w, cleanTarget)) {
-        return true;
-      }
-    }
-    return false;
-  },
-
-  // So sánh tương đối âm gần giống, hỗ trợ đặc trưng phát âm trẻ 5 tuổi
-  fuzzyMatchWord(s, t) {
-    if (!s || !t) return false;
-    // 1. Khớp chính xác hoặc chứa nhau
-    if (s === t || s.includes(t) || t.includes(s)) return true;
-
-    // 2. Trẻ 5 tuổi nuốt âm cuối (bỏ 1 hoặc 2 âm cuối): ví dụ cat -> ca, dog -> do, fish -> fi/fis
-    if (t.length >= 3) {
-      if (s === t.slice(0, -1)) return true;
-      if (t.length >= 4 && s === t.slice(0, -2)) return true;
-    }
-
-    // 3. Khớp âm tiết đầu nếu âm tiết >= 2 ký tự (ví dụ: cat -> ca/cut, dog -> do/dock)
-    if (t.length >= 3) {
-      const prefix = t.slice(0, 2);
-      if (s.startsWith(prefix) && s.length <= t.length + 1) return true;
-    }
-
-    // 4. Khoảng cách Levenshtein (biến âm như cat -> cut, dog -> dock, fish -> fit)
-    let d = [];
-    for (let i = 0; i <= s.length; i++) d[i] = [i];
-    for (let j = 0; j <= t.length; j++) d[0][j] = j;
-
-    for (let i = 1; i <= s.length; i++) {
-      for (let j = 1; j <= t.length; j++) {
-        d[i][j] = (s[i - 1] === t[j - 1])
-          ? d[i - 1][j - 1]
-          : Math.min(d[i - 1][j - 1] + 1, d[i][j - 1] + 1, d[i - 1][j] + 1);
-      }
-    }
-
-    const maxDist = t.length <= 4 ? 2 : Math.min(3, Math.floor(t.length / 2) + 1);
-    return d[s.length][t.length] <= maxDist;
+    this.showPraise(praise);
+    await AppState.speakText(praise, isBilingual ? "vi" : "en");
   },
 
   // Lưu từ đã học vào localStorage
@@ -423,7 +198,7 @@ const LearnScreen = {
   },
 
   // Hiển thị popup khen ngợi
-  showPraise(text, success) {
+  showPraise(text) {
     const overlay = document.getElementById("praise-overlay");
     const title = document.getElementById("praise-title");
     if (overlay && title) {
@@ -440,7 +215,8 @@ const LearnScreen = {
 
   // Chuyển sang từ kế tiếp
   nextWord() {
-    this.stopListening();
+    AppState.stopAudio();
+    this.isSpeaking = false;
     if (this.currentIndex < this.words.length - 1) {
       this.currentIndex++;
       this.render();
@@ -453,7 +229,8 @@ const LearnScreen = {
 
   // Quay lại từ trước
   prevWord() {
-    this.stopListening();
+    AppState.stopAudio();
+    this.isSpeaking = false;
     if (this.currentIndex > 0) {
       this.currentIndex--;
       this.render();

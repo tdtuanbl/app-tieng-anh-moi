@@ -4,7 +4,8 @@ const AppState = {
   stars: parseInt(localStorage.getItem("dau_stars") || "0", 10),
   topics: [],
   currentTopic: null,
-  currentAudio: null,
+  audioPlayer: new Audio(),
+  currentAudioResolve: null,
 
   // Khởi tạo ban đầu
   async init() {
@@ -62,31 +63,67 @@ const AppState = {
     }
   },
 
-  // Phát âm thanh TTS qua backend
+  // Dừng âm thanh hiện tại và giải phóng Promise cũ an toàn
+  stopAudio() {
+    if (this.currentAudioResolve) {
+      const resolve = this.currentAudioResolve;
+      this.currentAudioResolve = null;
+      resolve();
+    }
+    if (this.audioPlayer) {
+      this.audioPlayer.pause();
+      this.audioPlayer.currentTime = 0;
+    }
+  },
+
+  // Phát âm thanh TTS qua backend (Singleton Audio Player chống nghẽn)
   async speakText(text, lang = "en") {
     if (!text) return;
     try {
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio.currentTime = 0;
-      }
+      this.stopAudio();
+
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, lang })
       });
-      if (res.ok) {
-        const data = await res.json();
-        const audio = new Audio(data.url);
-        this.currentAudio = audio;
-        return new Promise((resolve) => {
-          audio.onended = () => resolve();
-          audio.onerror = () => resolve();
-          audio.play().catch(() => resolve());
+
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.url) return;
+
+      return new Promise((resolve) => {
+        this.currentAudioResolve = resolve;
+
+        this.audioPlayer.onended = () => {
+          if (this.currentAudioResolve === resolve) {
+            this.currentAudioResolve = null;
+          }
+          resolve();
+        };
+
+        this.audioPlayer.onerror = () => {
+          if (this.currentAudioResolve === resolve) {
+            this.currentAudioResolve = null;
+          }
+          resolve();
+        };
+
+        this.audioPlayer.src = data.url;
+        this.audioPlayer.play().catch(() => {
+          if (this.currentAudioResolve === resolve) {
+            this.currentAudioResolve = null;
+          }
+          resolve();
         });
-      }
+      });
     } catch (err) {
       console.error("Lỗi phát TTS:", err);
+      if (this.currentAudioResolve) {
+        const resolve = this.currentAudioResolve;
+        this.currentAudioResolve = null;
+        resolve();
+      }
     }
   },
 

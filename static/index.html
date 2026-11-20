@@ -98,11 +98,11 @@
   </main>
 
   <!-- Script Khởi tạo -->
-  <script src="/static/js/state.js?v=4"></script>
-  <script src="/static/js/home.js?v=4"></script>
-  <script src="/static/js/learn.js?v=4"></script>
-  <script src="/static/js/quiz.js?v=4"></script>
-  <script src="/static/js/racer.js?v=4"></script>
+  <script src="/static/js/state.js?v=5"></script>
+  <script src="/static/js/home.js?v=5"></script>
+  <script src="/static/js/learn.js?v=5"></script>
+  <script src="/static/js/quiz.js?v=5"></script>
+  <script src="/static/js/racer.js?v=5"></script>
   <script>
     // Mở khóa AudioContext và quyền phát âm thanh trên Safari iPadOS
     function unlockAudioAndStart() {
@@ -111,14 +111,11 @@
         const ctx = new AudioCtx();
         ctx.resume();
       }
-      const dummy = new Audio();
-      dummy.play().catch(() => {});
-
-      // Xin quyền Micro tiền trạm ngay lúc bấm Bắt đầu (User Gesture)
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => stream.getTracks().forEach(t => t.stop()))
-          .catch(() => {});
+      if (window.AppState && AppState.audioPlayer) {
+        AppState.audioPlayer.play().catch(() => {});
+      } else {
+        const dummy = new Audio();
+        dummy.play().catch(() => {});
       }
 
       const overlay = document.getElementById("start-overlay");
