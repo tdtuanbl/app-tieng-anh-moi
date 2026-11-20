@@ -1,8 +1,43 @@
 // Trò chơi Tìm hình 4 ô (Grid 2x2) cho bé Đậu
 const QuizScreen = {
   currentWord: null,
+  currentPrompt: "",
   options: [],
   isLocked: false,
+  preloadPromise: null,
+  lastQuestionPrompt: "",
+  lastPraise: "",
+
+  VI_QUESTIONS: [
+    "Đậu ơi, hình nào là",
+    "Tìm cho cô từ:",
+    "Đố Đậu biết đâu là",
+    "Bé Đậu chỉ cho cô hình",
+    "Đậu giỏi ơi, hình nào là"
+  ],
+
+  VI_PRAISES: [
+    "Đậu xuất sắc quá!",
+    "Tuyệt vời, 10 điểm!",
+    "Chính xác rồi, Đậu giỏi quá!",
+    "Hoan hô bé Đậu, đúng rồi!",
+    "Quá đỉnh luôn Đậu ơi!",
+    "Giỏi lắm, 10 điểm cho bé Đậu!"
+  ],
+
+  getRandomQuestionPrompt() {
+    const list = this.VI_QUESTIONS.filter(q => q !== this.lastQuestionPrompt);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastQuestionPrompt = selected;
+    return selected;
+  },
+
+  getRandomPraise() {
+    const list = this.VI_PRAISES.filter(p => p !== this.lastPraise);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastPraise = selected;
+    return selected;
+  },
 
   start() {
     if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length < 4) {
@@ -68,6 +103,23 @@ const QuizScreen = {
     `;
   },
 
+  // Lấy URL audio từ backend TTS
+  async fetchAudioUrl(text, lang) {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data ? data.url : null;
+    } catch (err) {
+      console.error("Lỗi tải trước âm thanh:", err);
+      return null;
+    }
+  },
+
   // Tạo câu hỏi mới
   nextQuestion() {
     this.isLocked = false;
@@ -76,6 +128,9 @@ const QuizScreen = {
     // Chọn 1 từ đúng ngẫu nhiên
     const target = words[Math.floor(Math.random() * words.length)];
     this.currentWord = target;
+
+    // Chọn ngẫu nhiên mẫu câu hỏi tiếng Việt (không lặp)
+    this.currentPrompt = this.getRandomQuestionPrompt();
 
     // Chọn 3 từ nhiễu khác nhau
     const others = words.filter(w => w.id !== target.id);
@@ -86,11 +141,17 @@ const QuizScreen = {
     this.options = [target, ...distractors];
     this.shuffle(this.options);
 
+    // Tải trước đồng thời audio tiếng Việt và tiếng Anh để xóa độ trễ
+    this.preloadPromise = Promise.all([
+      this.fetchAudioUrl(this.currentPrompt, "vi"),
+      this.fetchAudioUrl(target.en, "en")
+    ]);
+
     // Cập nhật câu hỏi text
     const questionTextEl = document.getElementById("quiz-question-text");
     if (questionTextEl) {
       if (AppState.voiceMode === "bilingual") {
-        questionTextEl.textContent = `Đậu ơi, hình nào là "${target.en}"?`;
+        questionTextEl.textContent = `${this.currentPrompt} "${target.en}"?`;
       } else {
         questionTextEl.textContent = `Where is the "${target.en}", Đậu?`;
       }
@@ -125,18 +186,83 @@ const QuizScreen = {
       }).join("");
     }
 
-    // Tự động phát âm thanh câu hỏi
+    // Tự động phát âm thanh câu hỏi liền mạch
     setTimeout(() => {
       this.playQuestionPrompt();
-    }, 300);
+    }, 200);
   },
 
-  // Phát câu hỏi theo chế độ giọng nói
+  // Phát chuỗi âm thanh tiếng Việt -> tiếng Anh liền mạch không ngắt quãng
+  playSeamlessQuestion(viUrl, enUrl) {
+    return new Promise((resolve) => {
+      AppState.stopAudio();
+      const player = AppState.audioPlayer;
+      let switched = false;
+
+      AppState.currentAudioResolve = resolve;
+
+      const cleanup = () => {
+        player.ontimeupdate = null;
+        player.onended = null;
+        player.onerror = null;
+        if (AppState.currentAudioResolve === resolve) {
+          AppState.currentAudioResolve = null;
+        }
+        resolve();
+      };
+
+      const switchToEnglish = () => {
+        if (switched) return;
+        switched = true;
+        player.ontimeupdate = null;
+        player.src = enUrl;
+        player.onended = cleanup;
+        player.onerror = cleanup;
+        player.play().catch(cleanup);
+      };
+
+      player.ontimeupdate = () => {
+        // Cắt khoảng lặng đuôi của Edge-TTS (khoảng 0.28s) để nối ngay tiếng Anh
+        if (player.duration && (player.duration - player.currentTime <= 0.28)) {
+          switchToEnglish();
+        }
+      };
+
+      player.onended = () => {
+        if (!switched) {
+          switchToEnglish();
+        } else {
+          cleanup();
+        }
+      };
+
+      player.onerror = cleanup;
+
+      player.src = viUrl;
+      player.play().catch(cleanup);
+    });
+  },
+
+  // Phát câu hỏi
   async playQuestionPrompt() {
     if (!this.currentWord) return;
+
     if (AppState.voiceMode === "bilingual") {
-      await AppState.speakText("Đậu ơi, hình nào là:", "vi");
-      await AppState.speakText(this.currentWord.en, "en");
+      try {
+        let urls = null;
+        if (this.preloadPromise) {
+          urls = await this.preloadPromise;
+        }
+        const [viUrl, enUrl] = urls || [];
+        if (viUrl && enUrl) {
+          await this.playSeamlessQuestion(viUrl, enUrl);
+        } else {
+          await AppState.speakText(this.currentPrompt, "vi");
+          await AppState.speakText(this.currentWord.en, "en");
+        }
+      } catch (e) {
+        console.error("Lỗi phát câu hỏi song ngữ:", e);
+      }
     } else {
       await AppState.speakText(`Where is the ${this.currentWord.en}, Đậu?`, "en");
     }
@@ -159,7 +285,7 @@ const QuizScreen = {
       }
 
       const praiseMsg = AppState.voiceMode === "bilingual"
-        ? "Đúng rồi! Đậu giỏi quá!"
+        ? this.getRandomPraise()
         : "Spot on, Đậu! Awesome!";
 
       if (feedbackEl) {
@@ -172,7 +298,7 @@ const QuizScreen = {
       // Chuyển sang câu hỏi kế tiếp
       setTimeout(() => {
         this.nextQuestion();
-      }, 1000);
+      }, 900);
 
     } else {
       // CHỌN NHẦM: Rung lắc & nhắc nhở thân thiện
