@@ -31,7 +31,14 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.get("/")
 def read_root():
-    return FileResponse(static_dir / "index.html")
+    return FileResponse(
+        static_dir / "index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 class TTSRequest(BaseModel):
     text: str = Field(..., max_length=200, description="Nội dung cần đọc tối đa 200 ký tự")
@@ -71,8 +78,10 @@ async def generate_tts(req: TTSRequest):
     filename = f"{cache_key}.mp3"
     file_path = audio_cache_dir / filename
 
-    # Nếu chưa có trong cache thì sinh audio mới
-    if not file_path.exists():
+    # Nếu chưa có trong cache hoặc file bị rỗng (0 byte) thì xóa và sinh audio mới
+    if not file_path.exists() or file_path.stat().st_size == 0:
+        if file_path.exists() and file_path.stat().st_size == 0:
+            file_path.unlink(missing_ok=True)
         communicate = edge_tts.Communicate(clean_text, voice)
         await communicate.save(str(file_path))
 

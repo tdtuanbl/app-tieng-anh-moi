@@ -64,42 +64,42 @@ const LearnScreen = {
         </div>
 
         <!-- THẺ FLASHCARD TRUNG TÂM KHỔ LỚN -->
-        <div class="flex-1 flex flex-col items-center justify-center my-2">
-          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[3rem] p-6 md:p-8 w-full max-w-lg shadow-xl border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center">
+        <div class="flex-1 flex flex-col items-center justify-center my-1">
+          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[2.5rem] p-4 sm:p-5 w-full max-w-md shadow-lg border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center">
             
             <!-- Nút loa góc trên thẻ -->
-            <button class="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-sm transition-all">
+            <button class="absolute top-4 right-4 w-10 h-10 rounded-xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-xl shadow-sm transition-all">
               🔊
             </button>
 
             <!-- Khung hình ảnh thật cỡ lớn hoặc Emoji trực quan -->
             ${word.image_url ? `
-              <div class="w-64 h-64 md:w-72 md:h-72 my-2 rounded-3xl overflow-hidden shadow-lg border-4 border-white bg-amber-50/50 flex items-center justify-center relative">
-                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-cover rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                <div style="display:none;" class="w-full h-full items-center justify-center text-8xl md:text-9xl filter drop-shadow-md">
+              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-amber-50/50 flex items-center justify-center relative">
+                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-cover rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md">
                   ${word.visual}
                 </div>
               </div>
             ` : `
-              <div class="w-64 h-64 md:w-72 md:h-72 my-2 flex items-center justify-center text-8xl md:text-9xl filter drop-shadow-md group-hover:scale-110 transition-transform">
+              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md group-hover:scale-110 transition-transform">
                 ${word.visual}
               </div>
             `}
 
             <!-- Từ tiếng Anh in đậm sắc nét -->
-            <h2 class="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mt-1 capitalize">
+            <h2 class="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mt-1 capitalize">
               ${word.en}
             </h2>
 
             <!-- Nghĩa tiếng Việt -->
-            <p class="text-xl md:text-2xl font-bold text-slate-500 mt-1">
+            <p class="text-lg sm:text-xl font-bold text-slate-500">
               ${word.vi}
             </p>
           </div>
 
           <!-- NÚT XÁC NHẬN CHO BA MẸ: CHÍNH XÁC -->
-          <div class="h-16 flex items-center justify-center mt-3">
-            <button onclick="LearnScreen.confirmCorrect()" class="px-8 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-xl md:text-2xl shadow-lg shadow-emerald-200/60 flex items-center gap-3 transition-all border-2 border-white">
+          <div class="h-14 flex items-center justify-center mt-2">
+            <button onclick="LearnScreen.confirmCorrect()" class="px-8 py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-lg sm:text-xl shadow-lg shadow-emerald-200/60 flex items-center gap-2.5 transition-all border-2 border-white">
               <span>✅</span>
               <span>Chính xác</span>
             </button>
@@ -107,18 +107,18 @@ const LearnScreen = {
         </div>
 
         <!-- BỘ ĐIỀU KHIỂN TIẾN / LÙI TỪ -->
-        <div class="flex items-center justify-center gap-6 pb-2">
-          <button onclick="LearnScreen.prevWord()" class="px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-black text-lg shadow-md border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
+        <div class="flex items-center justify-center gap-4 pb-1">
+          <button onclick="LearnScreen.prevWord()" class="px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
             <span>⬅️</span>
             <span>Từ trước</span>
           </button>
 
-          <button onclick="LearnScreen.playPrompt()" class="px-8 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-xl shadow-lg shadow-amber-200/50 active:scale-95 transition-all flex items-center gap-2">
+          <button onclick="LearnScreen.playPrompt()" class="px-7 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-lg shadow-md shadow-amber-200/50 active:scale-95 transition-all flex items-center gap-2">
             <span>🔊</span>
             <span>Nghe lại</span>
           </button>
 
-          <button onclick="LearnScreen.nextWord()" class="px-6 py-3.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-black text-lg shadow-md border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
+          <button onclick="LearnScreen.nextWord()" class="px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
             <span>Từ sau</span>
             <span>➡️</span>
           </button>
