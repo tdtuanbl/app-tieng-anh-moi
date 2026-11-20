@@ -99,19 +99,19 @@ const RacerScreen = {
           
           <!-- LÀN 0 (Trái) -->
           <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full border-r-2 border-dashed border-yellow-300/60 relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-0" class="absolute -top-32 w-28 h-28 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+            <div id="lane-item-0" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden">
             </div>
           </div>
 
           <!-- LÀN 1 (Giữa) -->
           <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full border-r-2 border-dashed border-yellow-300/60 relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-1" class="absolute -top-32 w-28 h-28 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+            <div id="lane-item-1" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden">
             </div>
           </div>
 
           <!-- LÀN 2 (Phải) -->
           <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-2" class="absolute -top-32 w-28 h-28 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
+            <div id="lane-item-2" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden">
             </div>
           </div>
 
@@ -229,10 +229,23 @@ const RacerScreen = {
       const itemEl = document.getElementById(`lane-item-${lane}`);
       if (itemEl) {
         const item = this.options[lane];
-        itemEl.style.top = "-120px";
+        itemEl.style.top = "-140px";
+        const visualHtml = item.word.image_url ? `
+          <div class="w-full flex-1 rounded-xl overflow-hidden relative flex items-center justify-center bg-slate-100">
+            <img src="${item.word.image_url}" alt="${item.word.en}" class="w-full h-full object-cover rounded-xl shadow-md" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div style="display:none;" class="w-full h-full items-center justify-center text-4xl filter drop-shadow-sm">
+              ${item.word.visual}
+            </div>
+          </div>
+        ` : `
+          <div class="w-full flex-1 flex items-center justify-center text-4xl md:text-5xl filter drop-shadow-sm">
+            ${item.word.visual}
+          </div>
+        `;
+
         itemEl.innerHTML = `
-          <span class="text-5xl filter drop-shadow-sm">${item.word.visual}</span>
-          <span class="text-xs font-black text-slate-800 capitalize mt-1">${item.word.en}</span>
+          ${visualHtml}
+          <span class="text-[11px] md:text-xs font-black text-slate-800 capitalize leading-tight py-0.5 truncate max-w-full">${item.word.en}</span>
         `;
       }
     }
@@ -382,7 +395,7 @@ const RacerScreen = {
     // Reset vị trí thẻ lên đỉnh
     for (let lane = 0; lane < 3; lane++) {
       const itemEl = document.getElementById(`lane-item-${lane}`);
-      if (itemEl) itemEl.style.top = "-120px";
+      if (itemEl) itemEl.style.top = "-140px";
     }
 
     await this.playQuestionPrompt();

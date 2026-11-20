@@ -105,25 +105,34 @@ const LearnScreen = {
 
         <!-- THẺ FLASHCARD TRUNG TÂM KHỔ LỚN -->
         <div class="flex-1 flex flex-col items-center justify-center my-2">
-          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[3rem] p-8 w-full max-w-lg shadow-xl border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center">
+          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[3rem] p-6 md:p-8 w-full max-w-lg shadow-xl border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center">
             
             <!-- Nút loa góc trên thẻ -->
             <button class="absolute top-6 right-6 w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-2xl shadow-sm transition-all">
               🔊
             </button>
 
-            <!-- Hình minh họa Visual cực lớn -->
-            <div class="text-8xl md:text-9xl my-3 filter drop-shadow-md group-hover:scale-110 transition-transform">
-              ${word.visual}
-            </div>
+            <!-- Khung hình ảnh thật cỡ lớn hoặc Emoji trực quan -->
+            ${word.image_url ? `
+              <div class="w-64 h-64 md:w-72 md:h-72 my-2 rounded-3xl overflow-hidden shadow-lg border-4 border-white bg-amber-50/50 flex items-center justify-center relative">
+                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-cover rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                <div style="display:none;" class="w-full h-full items-center justify-center text-8xl md:text-9xl filter drop-shadow-md">
+                  ${word.visual}
+                </div>
+              </div>
+            ` : `
+              <div class="w-64 h-64 md:w-72 md:h-72 my-2 flex items-center justify-center text-8xl md:text-9xl filter drop-shadow-md group-hover:scale-110 transition-transform">
+                ${word.visual}
+              </div>
+            `}
 
             <!-- Từ tiếng Anh in đậm sắc nét -->
-            <h2 class="text-5xl md:text-6xl font-black text-slate-800 tracking-tight mt-2 capitalize">
+            <h2 class="text-4xl md:text-5xl font-black text-slate-800 tracking-tight mt-1 capitalize">
               ${word.en}
             </h2>
 
             <!-- Nghĩa tiếng Việt -->
-            <p class="text-2xl font-bold text-slate-500 mt-2">
+            <p class="text-xl md:text-2xl font-bold text-slate-500 mt-1">
               ${word.vi}
             </p>
           </div>

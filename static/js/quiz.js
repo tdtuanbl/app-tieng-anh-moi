@@ -99,17 +99,30 @@ const QuizScreen = {
     // Render 4 thẻ ô lớn
     const gridEl = document.getElementById("quiz-grid");
     if (gridEl) {
-      gridEl.innerHTML = this.options.map((opt, idx) => `
-        <div id="quiz-card-${idx}" onclick="QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}')"
-             class="group bg-white rounded-[2.5rem] border-4 border-slate-100 hover:border-amber-300 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-4 text-center">
-          <div class="text-7xl md:text-8xl filter drop-shadow-sm group-hover:scale-110 transition-transform mb-1">
+      gridEl.innerHTML = this.options.map((opt, idx) => {
+        const visualContent = opt.image_url ? `
+          <div class="w-full h-36 md:h-44 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center relative mb-2 shadow-inner border border-slate-100">
+            <img src="${opt.image_url}" alt="${opt.en}" class="w-full h-full object-cover rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+            <div style="display:none;" class="w-full h-full items-center justify-center text-6xl md:text-7xl filter drop-shadow-sm">
+              ${opt.visual}
+            </div>
+          </div>
+        ` : `
+          <div class="w-full h-36 md:h-44 flex items-center justify-center text-7xl md:text-8xl filter drop-shadow-sm group-hover:scale-110 transition-transform mb-2">
             ${opt.visual}
           </div>
-          <span class="text-2xl md:text-3xl font-extrabold text-slate-800 capitalize">
-            ${opt.en}
-          </span>
-        </div>
-      `).join("");
+        `;
+
+        return `
+          <div id="quiz-card-${idx}" onclick="QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}')"
+               class="group bg-white rounded-[2rem] border-4 border-slate-100 hover:border-amber-300 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-3 text-center overflow-hidden">
+            ${visualContent}
+            <span class="text-xl md:text-2xl font-black text-slate-800 capitalize leading-tight">
+              ${opt.en}
+            </span>
+          </div>
+        `;
+      }).join("");
     }
 
     // Tự động phát âm thanh câu hỏi
@@ -142,7 +155,7 @@ const QuizScreen = {
       AppState.addStars(1);
 
       if (cardEl) {
-        cardEl.className = "bg-emerald-50 rounded-[2.5rem] border-4 border-emerald-400 shadow-xl flex flex-col items-center justify-center p-4 text-center scale-105 transition-all";
+        cardEl.className = "bg-emerald-50 rounded-[2rem] border-4 border-emerald-400 shadow-xl flex flex-col items-center justify-center p-3 text-center scale-105 transition-all overflow-hidden";
       }
 
       const praiseMsg = AppState.voiceMode === "bilingual"
