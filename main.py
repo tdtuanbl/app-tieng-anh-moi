@@ -82,8 +82,18 @@ async def generate_tts(req: TTSRequest):
     if not file_path.exists() or file_path.stat().st_size == 0:
         if file_path.exists() and file_path.stat().st_size == 0:
             file_path.unlink(missing_ok=True)
-        communicate = edge_tts.Communicate(clean_text, voice)
-        await communicate.save(str(file_path))
+        try:
+            communicate = edge_tts.Communicate(clean_text, voice)
+            await communicate.save(str(file_path))
+            if file_path.exists() and file_path.stat().st_size == 0:
+                file_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=500, detail="Edge TTS sinh file rỗng")
+        except HTTPException:
+            raise
+        except Exception as e:
+            if file_path.exists():
+                file_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"Lỗi TTS: {str(e)}")
 
     return {"url": f"/static/audio_cache/{filename}"}
 

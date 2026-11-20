@@ -151,8 +151,8 @@ const LearnScreen = {
       await AppState.speakText(word.en, "en");
       if (this.playSequence !== currentSeq) return;
 
-      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt ngắn gọn: "Đậu đọc lại cho cô nhé"
-      await AppState.speakText("Đậu đọc lại cho cô nhé", "vi");
+      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt ngắn gọn: "Bé Đậu đọc lại cho cô nhé"
+      await AppState.speakText("Bé Đậu đọc lại cho cô nhé", "vi");
     } finally {
       if (this.playSequence === currentSeq) {
         this.isSpeaking = false;
