@@ -4,11 +4,11 @@
 
 ---
 
-## 📌 QUY TẮC BẮT BUỘC: 100% ẢNH CHỤP THỰC TẾ (REAL PHOTOGRAPHY)
+## 📌 QUY TẮC BẮT BUỘC: CHỌN TỪ VỰNG GẦN GŨI VỚI TRẺ EM VIỆT NAM & 100% ẢNH CHỤP THỰC TẾ
 
 > [!IMPORTANT]
 > **Quy tắc bất di bất dịch của dự án:**
-> Mọi từ vựng trong ứng dụng Tiếng Anh Của Đậu (cả hiện tại lẫn các chủ đề mở rộng về sau) **BẮT BUỘC phải sử dụng ẢNH CHỤP THỰC TẾ (Real Photography)** cận cảnh, rõ nét, tách bạch 1 vật thể duy nhất. **Nghiêm cấm** sử dụng ảnh hoạt hình, icon, emoji 3D, vector, clipart hay tranh vẽ.
+> Mọi từ vựng khi thêm mới hoặc chỉnh sửa trong ứng dụng **BẮT BUỘC phải là các sự vật, hiện tượng, phương tiện gần gũi mà trẻ em Việt Nam có thể nhìn thấy và tiếp xúc trực tiếp trong đời sống hằng ngày** (tránh các từ quá xa lạ hoặc ít gặp ở Việt Nam). Kèm theo **100% ẢNH CHỤP THỰC TẾ (Real Photography)** cận cảnh, rõ 1 vật thể duy nhất (ngoại trừ duy nhất chủ đề Hình học dùng hình vẽ chuẩn tiểu học).
 > 
 > *Ngoại lệ duy nhất*: Riêng chủ đề Hình học sử dụng hình vẽ hình học chuẩn giáo dục tiểu học (nền trắng sạch, nét viền rõ ràng, tô màu tươi sáng, không chứa chữ).
 

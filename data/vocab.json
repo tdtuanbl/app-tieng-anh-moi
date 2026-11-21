@@ -56,13 +56,6 @@
           "image_url": "/static/images/horse.jpg"
         },
         {
-          "id": "sheep",
-          "en": "sheep",
-          "vi": "con cừu",
-          "visual": "🐑",
-          "image_url": "/static/images/sheep.jpg"
-        },
-        {
           "id": "goat",
           "en": "goat",
           "vi": "con dê",
@@ -140,13 +133,6 @@
           "image_url": "/static/images/giraffe.jpg"
         },
         {
-          "id": "zebra",
-          "en": "zebra",
-          "vi": "con ngựa vằn",
-          "visual": "🦓",
-          "image_url": "/static/images/zebra.jpg"
-        },
-        {
           "id": "frog",
           "en": "frog",
           "vi": "con ếch",
@@ -168,25 +154,11 @@
           "image_url": "/static/images/turtle.jpg"
         },
         {
-          "id": "penguin",
-          "en": "penguin",
-          "vi": "chim cánh cụt",
-          "visual": "🐧",
-          "image_url": "/static/images/penguin.jpg"
-        },
-        {
           "id": "dolphin",
           "en": "dolphin",
           "vi": "cá heo",
           "visual": "🐬",
           "image_url": "/static/images/dolphin.jpg"
-        },
-        {
-          "id": "whale",
-          "en": "whale",
-          "vi": "cá voi",
-          "visual": "🐳",
-          "image_url": "/static/images/whale.jpg"
         },
         {
           "id": "bee",
@@ -210,11 +182,46 @@
           "image_url": "/static/images/crocodile.jpg"
         },
         {
-          "id": "panda",
-          "en": "panda",
-          "vi": "gấu trúc",
-          "visual": "🐼",
-          "image_url": "/static/images/panda.jpg"
+          "id": "buffalo",
+          "en": "buffalo",
+          "vi": "con trâu",
+          "visual": "🐃",
+          "image_url": "/static/images/buffalo.jpg"
+        },
+        {
+          "id": "sparrow",
+          "en": "sparrow",
+          "vi": "con chim sẻ",
+          "visual": "🐦",
+          "image_url": "/static/images/sparrow.jpg"
+        },
+        {
+          "id": "dragonfly",
+          "en": "dragonfly",
+          "vi": "con chuồn chuồn",
+          "visual": "🦋",
+          "image_url": "/static/images/dragonfly.jpg"
+        },
+        {
+          "id": "ant",
+          "en": "ant",
+          "vi": "con kiến",
+          "visual": "🐜",
+          "image_url": "/static/images/ant.jpg"
+        },
+        {
+          "id": "shrimp",
+          "en": "shrimp",
+          "vi": "con tôm",
+          "visual": "🦐",
+          "image_url": "/static/images/shrimp.jpg"
+        },
+        {
+          "id": "crab",
+          "en": "crab",
+          "vi": "con cua",
+          "visual": "🦀",
+          "image_url": "/static/images/crab.jpg"
         }
       ]
     },
@@ -276,7 +283,7 @@
         {
           "id": "boat",
           "en": "boat",
-          "vi": "thuyền buồm",
+          "vi": "thuyền",
           "visual": "⛵",
           "image_url": "/static/images/boat.jpg"
         },
@@ -323,16 +330,9 @@
           "image_url": "/static/images/taxi.jpg"
         },
         {
-          "id": "rocket",
-          "en": "rocket",
-          "vi": "tên lửa",
-          "visual": "🚀",
-          "image_url": "/static/images/rocket.jpg"
-        },
-        {
           "id": "tractor",
           "en": "tractor",
-          "vi": "máy kéo",
+          "vi": "máy cày",
           "visual": "🚜",
           "image_url": "/static/images/tractor.jpg"
         },
@@ -344,32 +344,11 @@
           "image_url": "/static/images/scooter.jpg"
         },
         {
-          "id": "skateboard",
-          "en": "skateboard",
-          "vi": "ván trượt",
-          "visual": "🛹",
-          "image_url": "/static/images/skateboard.jpg"
-        },
-        {
-          "id": "hot_air_balloon",
-          "en": "hot air balloon",
-          "vi": "khinh khí cầu",
-          "visual": "🎈",
-          "image_url": "/static/images/hot_air_balloon.jpg"
-        },
-        {
           "id": "van",
           "en": "van",
-          "vi": "xe 16 chỗ / xe van",
+          "vi": "xe 16 chỗ",
           "visual": "🚐",
           "image_url": "/static/images/van.jpg"
-        },
-        {
-          "id": "canoe",
-          "en": "canoe",
-          "vi": "xuồng / ca-nô",
-          "visual": "🛶",
-          "image_url": "/static/images/canoe.jpg"
         },
         {
           "id": "ferry",
@@ -393,34 +372,6 @@
           "image_url": "/static/images/dump_truck.jpg"
         },
         {
-          "id": "subway",
-          "en": "subway",
-          "vi": "tàu điện ngầm",
-          "visual": "🚇",
-          "image_url": "/static/images/subway.jpg"
-        },
-        {
-          "id": "yacht",
-          "en": "yacht",
-          "vi": "du thuyền",
-          "visual": "🛥️",
-          "image_url": "/static/images/yacht.jpg"
-        },
-        {
-          "id": "spaceship",
-          "en": "spaceship",
-          "vi": "phi thuyền vũ trụ",
-          "visual": "🛸",
-          "image_url": "/static/images/spaceship.jpg"
-        },
-        {
-          "id": "parachute",
-          "en": "parachute",
-          "vi": "dù lượn",
-          "visual": "🪂",
-          "image_url": "/static/images/parachute.jpg"
-        },
-        {
           "id": "bulldozer",
           "en": "bulldozer",
           "vi": "xe ủi đất",
@@ -433,6 +384,41 @@
           "vi": "thuyền buồm",
           "visual": "⛵",
           "image_url": "/static/images/sailboat.jpg"
+        },
+        {
+          "id": "excavator",
+          "en": "excavator",
+          "vi": "máy xúc",
+          "visual": "🚜",
+          "image_url": "/static/images/excavator.jpg"
+        },
+        {
+          "id": "crane_truck",
+          "en": "crane truck",
+          "vi": "xe cần cẩu",
+          "visual": "🏗️",
+          "image_url": "/static/images/crane_truck.jpg"
+        },
+        {
+          "id": "garbage_truck",
+          "en": "garbage truck",
+          "vi": "xe chở rác",
+          "visual": "🚛",
+          "image_url": "/static/images/garbage_truck.jpg"
+        },
+        {
+          "id": "electric_bike",
+          "en": "electric bike",
+          "vi": "xe đạp điện",
+          "visual": "🛵",
+          "image_url": "/static/images/electric_bike.jpg"
+        },
+        {
+          "id": "tricycle",
+          "en": "tricycle",
+          "vi": "xe 3 bánh",
+          "visual": "🚲",
+          "image_url": "/static/images/tricycle.jpg"
         }
       ]
     },
@@ -447,210 +433,98 @@
           "en": "baby",
           "vi": "em bé",
           "visual": "👶",
-          "image_url": null
+          "image_url": "/static/images/baby.jpg"
         },
         {
           "id": "father",
           "en": "father",
           "vi": "bố",
           "visual": "👨",
-          "image_url": null
+          "image_url": "/static/images/father.jpg"
         },
         {
           "id": "mother",
           "en": "mother",
           "vi": "mẹ",
           "visual": "👩",
-          "image_url": null
+          "image_url": "/static/images/mother.jpg"
         },
         {
           "id": "brother",
           "en": "brother",
           "vi": "anh trai / em trai",
           "visual": "👦",
-          "image_url": null
+          "image_url": "/static/images/brother.jpg"
         },
         {
           "id": "sister",
           "en": "sister",
           "vi": "chị gái / em gái",
           "visual": "👧",
-          "image_url": null
+          "image_url": "/static/images/sister.jpg"
         },
         {
           "id": "grandfather",
           "en": "grandfather",
           "vi": "ông nội / ông ngoại",
           "visual": "👴",
-          "image_url": null
+          "image_url": "/static/images/grandfather.jpg"
         },
         {
           "id": "grandmother",
           "en": "grandmother",
           "vi": "bà nội / bà ngoại",
           "visual": "👵",
-          "image_url": null
-        },
-        {
-          "id": "family",
-          "en": "family",
-          "vi": "gia đình",
-          "visual": "👨‍👩‍👦",
-          "image_url": null
+          "image_url": "/static/images/grandmother.jpg"
         },
         {
           "id": "uncle",
           "en": "uncle",
           "vi": "chú / bác / cậu",
           "visual": "👨‍🦰",
-          "image_url": null
+          "image_url": "/static/images/uncle.jpg"
         },
         {
           "id": "aunt",
           "en": "aunt",
           "vi": "cô / dì / mợ",
           "visual": "👩‍🦰",
-          "image_url": null
+          "image_url": "/static/images/aunt.jpg"
         },
         {
           "id": "cousin",
           "en": "cousin",
           "vi": "anh chị em họ",
           "visual": "🧑‍🤝‍🧑",
-          "image_url": null
+          "image_url": "/static/images/cousin.jpg"
         },
         {
           "id": "son",
           "en": "son",
           "vi": "con trai",
           "visual": "👦",
-          "image_url": null
+          "image_url": "/static/images/son.jpg"
         },
         {
           "id": "daughter",
           "en": "daughter",
           "vi": "con gái",
           "visual": "👧",
-          "image_url": null
-        },
-        {
-          "id": "parents",
-          "en": "parents",
-          "vi": "bố mẹ",
-          "visual": "🧑‍🤝‍🧑",
-          "image_url": null
-        },
-        {
-          "id": "love",
-          "en": "love",
-          "vi": "tình yêu thương",
-          "visual": "❤️",
-          "image_url": null
-        },
-        {
-          "id": "hug",
-          "en": "hug",
-          "vi": "cái ôm ấm áp",
-          "visual": "🤗",
-          "image_url": null
-        },
-        {
-          "id": "kiss",
-          "en": "kiss",
-          "vi": "nụ hôn yêu thương",
-          "visual": "💋",
-          "image_url": null
-        },
-        {
-          "id": "smile",
-          "en": "smile",
-          "vi": "nụ cười tươi",
-          "visual": "😊",
-          "image_url": null
-        },
-        {
-          "id": "home",
-          "en": "home",
-          "vi": "mái ấm gia đình",
-          "visual": "🏡",
-          "image_url": null
-        },
-        {
-          "id": "happy",
-          "en": "happy",
-          "vi": "vui vẻ hạnh phúc",
-          "visual": "😄",
-          "image_url": null
-        },
-        {
-          "id": "friend",
-          "en": "friend",
-          "vi": "bạn bè",
-          "visual": "🤝",
-          "image_url": null
-        },
-        {
-          "id": "play",
-          "en": "play",
-          "vi": "chơi đùa vui vẻ",
-          "visual": "🪀",
-          "image_url": null
-        },
-        {
-          "id": "help",
-          "en": "help",
-          "vi": "giúp đỡ người thân",
-          "visual": "🤲",
-          "image_url": null
-        },
-        {
-          "id": "share",
-          "en": "share",
-          "vi": "chia sẻ đồ chơi",
-          "visual": "🎁",
-          "image_url": null
-        },
-        {
-          "id": "listen",
-          "en": "listen",
-          "vi": "chăm chú lắng nghe",
-          "visual": "👂",
-          "image_url": null
-        },
-        {
-          "id": "protect",
-          "en": "protect",
-          "vi": "bảo vệ che chở",
-          "visual": "🛡️",
-          "image_url": null
-        },
-        {
-          "id": "teach",
-          "en": "teach",
-          "vi": "dạy bảo ân cần",
-          "visual": "🧑‍🏫",
-          "image_url": null
-        },
-        {
-          "id": "care",
-          "en": "care",
-          "vi": "chăm sóc quan tâm",
-          "visual": "🪴",
-          "image_url": null
-        },
-        {
-          "id": "together",
-          "en": "together",
-          "vi": "bên nhau sum vầy",
-          "visual": "🧑‍🤝‍🧑",
-          "image_url": null
+          "image_url": "/static/images/daughter.jpg"
         },
         {
           "id": "child",
           "en": "child",
           "vi": "em bé nhỏ",
           "visual": "🧒",
-          "image_url": null
+          "image_url": "/static/images/child.jpg"
+        },
+        {
+          "id": "friend",
+          "en": "friend",
+          "vi": "bạn bè",
+          "visual": "🤝",
+          "image_url": "/static/images/friend.jpg"
         }
       ]
     },
@@ -745,13 +619,6 @@
           "image_url": "/static/images/spoon.jpg"
         },
         {
-          "id": "fork",
-          "en": "fork",
-          "vi": "cái nĩa",
-          "visual": "🍴",
-          "image_url": "/static/images/fork.jpg"
-        },
-        {
           "id": "plate",
           "en": "plate",
           "vi": "cái đĩa đựng thức ăn",
@@ -822,13 +689,6 @@
           "image_url": "/static/images/towel.jpg"
         },
         {
-          "id": "telephone",
-          "en": "telephone",
-          "vi": "điện thoại bàn",
-          "visual": "☎️",
-          "image_url": "/static/images/telephone.jpg"
-        },
-        {
           "id": "computer",
           "en": "computer",
           "vi": "máy vi tính",
@@ -869,6 +729,34 @@
           "vi": "chìa khóa cửa",
           "visual": "🔑",
           "image_url": "/static/images/key.jpg"
+        },
+        {
+          "id": "smartphone",
+          "en": "smartphone",
+          "vi": "điện thoại thông minh",
+          "visual": "📱",
+          "image_url": "/static/images/smartphone.jpg"
+        },
+        {
+          "id": "chopsticks",
+          "en": "chopsticks",
+          "vi": "đôi đũa",
+          "visual": "🥢",
+          "image_url": "/static/images/chopsticks.jpg"
+        },
+        {
+          "id": "washing_machine",
+          "en": "washing machine",
+          "vi": "máy giặt",
+          "visual": "🫧",
+          "image_url": "/static/images/washing_machine.jpg"
+        },
+        {
+          "id": "backpack",
+          "en": "backpack",
+          "vi": "cặp sách",
+          "visual": "🎒",
+          "image_url": "/static/images/backpack.jpg"
         }
       ]
     },
@@ -905,13 +793,6 @@
           "vi": "dưa hấu",
           "visual": "🍉",
           "image_url": "/static/images/watermelon.jpg"
-        },
-        {
-          "id": "strawberry",
-          "en": "strawberry",
-          "vi": "dâu tây",
-          "visual": "🍓",
-          "image_url": "/static/images/strawberry.jpg"
         },
         {
           "id": "grape",
@@ -982,6 +863,48 @@
           "vi": "nước",
           "visual": "💧",
           "image_url": "/static/images/water.jpg"
+        },
+        {
+          "id": "papaya",
+          "en": "papaya",
+          "vi": "đu đủ",
+          "visual": "🍈",
+          "image_url": "/static/images/papaya.jpg"
+        },
+        {
+          "id": "coconut",
+          "en": "coconut",
+          "vi": "quả dừa",
+          "visual": "🥥",
+          "image_url": "/static/images/coconut.jpg"
+        },
+        {
+          "id": "dragon_fruit",
+          "en": "dragon fruit",
+          "vi": "thanh long",
+          "visual": "🍒",
+          "image_url": "/static/images/dragon_fruit.jpg"
+        },
+        {
+          "id": "sweet_potato",
+          "en": "sweet potato",
+          "vi": "khoai lang",
+          "visual": "🍠",
+          "image_url": "/static/images/sweet_potato.jpg"
+        },
+        {
+          "id": "noodle",
+          "en": "noodle",
+          "vi": "bún / mì",
+          "visual": "🍜",
+          "image_url": "/static/images/noodle.jpg"
+        },
+        {
+          "id": "vegetable",
+          "en": "vegetable",
+          "vi": "rau xanh",
+          "visual": "🥦",
+          "image_url": "/static/images/vegetable.jpg"
         }
       ]
     },
@@ -1076,25 +999,53 @@
           "image_url": "/static/images/sea.jpg"
         },
         {
-          "id": "wind",
-          "en": "wind",
-          "vi": "gió",
-          "visual": "💨",
-          "image_url": "/static/images/wind.jpg"
-        },
-        {
-          "id": "fire",
-          "en": "fire",
-          "vi": "ngọn lửa",
-          "visual": "🔥",
-          "image_url": "/static/images/fire.jpg"
-        },
-        {
           "id": "grass",
           "en": "grass",
           "vi": "bãi cỏ",
           "visual": "🌿",
           "image_url": "/static/images/grass.jpg"
+        },
+        {
+          "id": "sand",
+          "en": "sand",
+          "vi": "cát",
+          "visual": "🏖️",
+          "image_url": "/static/images/sand.jpg"
+        },
+        {
+          "id": "rock",
+          "en": "rock",
+          "vi": "tảng đá",
+          "visual": "🪨",
+          "image_url": "/static/images/rock.jpg"
+        },
+        {
+          "id": "bamboo",
+          "en": "bamboo",
+          "vi": "cây tre",
+          "visual": "🌿",
+          "image_url": "/static/images/bamboo.jpg"
+        },
+        {
+          "id": "pond",
+          "en": "pond",
+          "vi": "ao nước",
+          "visual": "🏞️",
+          "image_url": "/static/images/pond.jpg"
+        },
+        {
+          "id": "soil",
+          "en": "soil",
+          "vi": "đất",
+          "visual": "🌱",
+          "image_url": "/static/images/soil.jpg"
+        },
+        {
+          "id": "mushroom",
+          "en": "mushroom",
+          "vi": "cây nấm",
+          "visual": "🍄",
+          "image_url": "/static/images/mushroom.jpg"
         }
       ]
     },
@@ -1187,6 +1138,84 @@
           "vi": "hình trụ",
           "visual": "🥫",
           "image_url": "/static/images/shape_cylinder.png"
+        }
+      ]
+    },
+    {
+      "id": "clothes",
+      "title": "Quần áo",
+      "icon": "👕",
+      "color": "bg-purple-100 text-purple-800",
+      "words": [
+        {
+          "id": "shirt",
+          "en": "shirt",
+          "vi": "áo",
+          "visual": "👕",
+          "image_url": "/static/images/shirt.jpg"
+        },
+        {
+          "id": "pants",
+          "en": "pants",
+          "vi": "quần dài",
+          "visual": "👖",
+          "image_url": "/static/images/pants.jpg"
+        },
+        {
+          "id": "dress",
+          "en": "dress",
+          "vi": "váy",
+          "visual": "👗",
+          "image_url": "/static/images/dress.jpg"
+        },
+        {
+          "id": "shoes",
+          "en": "shoes",
+          "vi": "giày",
+          "visual": "👟",
+          "image_url": "/static/images/shoes.jpg"
+        },
+        {
+          "id": "sandals",
+          "en": "sandals",
+          "vi": "dép quai hậu",
+          "visual": "🩴",
+          "image_url": "/static/images/sandals.jpg"
+        },
+        {
+          "id": "socks",
+          "en": "socks",
+          "vi": "tất / vớ",
+          "visual": "🧦",
+          "image_url": "/static/images/socks.jpg"
+        },
+        {
+          "id": "hat",
+          "en": "hat",
+          "vi": "mũ / nón",
+          "visual": "🧢",
+          "image_url": "/static/images/hat.jpg"
+        },
+        {
+          "id": "jacket",
+          "en": "jacket",
+          "vi": "áo khoác",
+          "visual": "🧥",
+          "image_url": "/static/images/jacket.jpg"
+        },
+        {
+          "id": "shorts",
+          "en": "shorts",
+          "vi": "quần đùi",
+          "visual": "🩳",
+          "image_url": "/static/images/shorts.jpg"
+        },
+        {
+          "id": "raincoat",
+          "en": "raincoat",
+          "vi": "áo mưa",
+          "visual": "🌧️",
+          "image_url": "/static/images/raincoat.jpg"
         }
       ]
     }

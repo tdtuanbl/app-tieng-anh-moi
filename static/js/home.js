@@ -57,7 +57,7 @@ const HomeScreen = {
           <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Hôm nay bé Đậu muốn khám phá gì nào? 🚀</h2>
         </div>
 
-        <!-- Lưới 7 thẻ chủ đề cân đối (4 trên + 3 dưới căn giữa) trên iPad ngang -->
+        <!-- Lưới 8 thẻ chủ đề cân đối (2 hàng x 4 thẻ căn giữa) trên iPad ngang -->
         <div class="flex flex-wrap justify-center gap-3.5 md:gap-4 flex-1 items-center content-center py-1 w-full">
           ${cardsHtml}
         </div>
