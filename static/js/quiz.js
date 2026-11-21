@@ -7,7 +7,13 @@ const QuizScreen = {
   preloadPromise: null,
   lastQuestionPrompt: "",
   lastPraise: "",
+  selectedTopicId: "all",
+  questionQueue: [],
+  lastTargetWordId: null,
+  lastCorrectIndex: -1,
+  distractorCounts: {},
 
+  // 5 mẫu câu hỏi tiếng Việt sinh động
   VI_QUESTIONS: [
     "Đậu ơi, hình nào là",
     "Tìm cho cô từ:",
@@ -16,6 +22,7 @@ const QuizScreen = {
     "Đậu giỏi ơi, hình nào là"
   ],
 
+  // 6 câu khen ngợi hào hứng
   VI_PRAISES: [
     "Đậu xuất sắc quá!",
     "Tuyệt vời, 10 điểm!",
@@ -39,6 +46,80 @@ const QuizScreen = {
     return selected;
   },
 
+  // Thuật toán xáo trộn mảng Fisher-Yates chuẩn xác
+  shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  },
+
+  // Lấy danh sách từ vựng theo chủ đề đang chọn (bao gồm "🎲 Tất cả chủ đề")
+  getWordPool() {
+    if (this.selectedTopicId === "all") {
+      // Gộp toàn bộ từ của cả 6 chủ đề vào 1 kho duy nhất (~150 từ)
+      const pool = [];
+      const seen = new Set();
+      if (AppState.topics && AppState.topics.length > 0) {
+        for (const t of AppState.topics) {
+          if (t.words) {
+            for (const w of t.words) {
+              if (!seen.has(w.id)) {
+                seen.add(w.id);
+                pool.push(w);
+              }
+            }
+          }
+        }
+      }
+      if (pool.length >= 4) return pool;
+      return (AppState.currentTopic && AppState.currentTopic.words) ? AppState.currentTopic.words : [];
+    }
+
+    // Trường hợp chọn chủ đề cụ thể
+    if (AppState.topics && AppState.topics.length > 0) {
+      const topic = AppState.topics.find(t => t.id === this.selectedTopicId);
+      if (topic && topic.words && topic.words.length >= 4) {
+        return topic.words;
+      }
+    }
+
+    if (AppState.currentTopic && AppState.currentTopic.words && AppState.currentTopic.words.length >= 4) {
+      return AppState.currentTopic.words;
+    }
+
+    return [];
+  },
+
+  // Nạp lại túi xào bài (Shuffle Bag) khi hết lượt
+  refillQuestionQueue() {
+    const pool = this.getWordPool();
+    if (!pool || pool.length === 0) return;
+
+    const newQueue = [...pool];
+    this.shuffle(newQueue);
+
+    // Đảm bảo từ đầu tiên của vòng mới không bao giờ trùng với từ vừa hỏi liền trước
+    if (newQueue.length > 1 && this.lastTargetWordId && newQueue[0].id === this.lastTargetWordId) {
+      const swapIdx = 1 + Math.floor(Math.random() * (newQueue.length - 1));
+      [newQueue[0], newQueue[swapIdx]] = [newQueue[swapIdx], newQueue[0]];
+    }
+
+    this.questionQueue = newQueue;
+  },
+
+  // Rút 1 từ đích tiếp theo từ túi xào bài
+  getNextTargetWord() {
+    if (!this.questionQueue || this.questionQueue.length === 0) {
+      this.refillQuestionQueue();
+    }
+    const target = this.questionQueue.shift();
+    this.lastTargetWordId = target ? target.id : null;
+    return target;
+  },
+
+  // Bắt đầu màn hình Quiz
   start() {
     if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length < 4) {
       if (AppState.topics && AppState.topics.length > 0) {
@@ -47,7 +128,25 @@ const QuizScreen = {
         return;
       }
     }
+    this.selectedTopicId = (AppState.currentTopic && AppState.currentTopic.id) ? AppState.currentTopic.id : "all";
+    this.questionQueue = [];
+    this.lastTargetWordId = null;
+    this.lastCorrectIndex = -1;
+    this.distractorCounts = {};
     this.renderContainer();
+    this.nextQuestion();
+  },
+
+  // Chuyển đổi chủ đề ngay trong trò chơi
+  handleTopicChange(newTopicId) {
+    this.selectedTopicId = newTopicId;
+    this.questionQueue = [];
+    this.lastTargetWordId = null;
+    this.lastCorrectIndex = -1;
+    if (newTopicId !== "all" && AppState.topics) {
+      const found = AppState.topics.find(t => t.id === newTopicId);
+      if (found) AppState.currentTopic = found;
+    }
     this.nextQuestion();
   },
 
@@ -69,22 +168,28 @@ const QuizScreen = {
       </style>
 
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative">
-        <!-- Thanh điều hướng & Câu hỏi -->
-        <div class="flex items-center justify-between w-full px-2">
-          <button onclick="AppState.showScreen('screen-home')" class="px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
+        <!-- Thanh điều hướng & Câu hỏi & Bộ chọn chủ đề -->
+        <div class="flex items-center justify-between w-full px-2 gap-2">
+          <button onclick="AppState.showScreen('screen-home')" class="px-3.5 md:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm shrink-0">
             <span>⬅️</span>
             <span>Chủ đề</span>
           </button>
 
           <!-- Nút Loa to & Câu hỏi nổi bật -->
-          <button onclick="QuizScreen.playQuestionPrompt()" class="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-xl shadow-md flex items-center gap-3 transition-all">
-            <span class="text-2xl animate-pulse">🔊</span>
-            <span id="quiz-question-text">Đậu ơi, hình nào là...?</span>
+          <button onclick="QuizScreen.playQuestionPrompt()" class="px-4 md:px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-base md:text-xl shadow-md flex items-center gap-2 md:gap-3 transition-all truncate max-w-[50%]">
+            <span class="text-xl md:text-2xl animate-pulse">🔊</span>
+            <span id="quiz-question-text" class="truncate">Đậu ơi, hình nào là...?</span>
           </button>
 
-          <div class="px-4 py-1.5 rounded-full bg-emerald-100/80 text-emerald-900 font-extrabold text-sm border border-emerald-200 flex items-center gap-2">
+          <!-- Bộ chọn chủ đề (kèm lựa chọn 🎲 Tất cả chủ đề) -->
+          <div class="flex items-center gap-1.5 bg-emerald-100/90 text-emerald-900 font-extrabold text-xs md:text-sm px-3 py-1.5 rounded-2xl border border-emerald-200 shadow-sm shrink-0">
             <span>🎯</span>
-            <span id="quiz-topic-title">${AppState.currentTopic ? AppState.currentTopic.title : ""}</span>
+            <select id="quiz-topic-select" onchange="QuizScreen.handleTopicChange(this.value)" class="bg-transparent font-black text-xs md:text-sm text-emerald-950 outline-none cursor-pointer border-none pr-1">
+              <option value="all" ${this.selectedTopicId === 'all' ? 'selected' : ''}>🎲 Tất cả chủ đề</option>
+              ${(AppState.topics || []).map(t => `
+                <option value="${t.id}" ${this.selectedTopicId === t.id ? 'selected' : ''}>${t.title}</option>
+              `).join("")}
+            </select>
           </div>
         </div>
 
@@ -120,26 +225,54 @@ const QuizScreen = {
     }
   },
 
-  // Tạo câu hỏi mới
+  // Tạo câu hỏi mới (áp dụng túi xào bài + chống lặp vị trí ô 2x2)
   nextQuestion() {
     this.isLocked = false;
-    const words = AppState.currentTopic.words;
     
-    // Chọn 1 từ đúng ngẫu nhiên
-    const target = words[Math.floor(Math.random() * words.length)];
+    // 1. Rút 1 từ đích từ túi xào bài Fisher-Yates (không bao giờ lặp cho đến khi hết vòng)
+    const target = this.getNextTargetWord();
+    if (!target) return;
     this.currentWord = target;
 
-    // Chọn ngẫu nhiên mẫu câu hỏi tiếng Việt (không lặp)
+    // 2. Chọn ngẫu nhiên mẫu câu hỏi tiếng Việt (không lặp với câu liền trước)
     this.currentPrompt = this.getRandomQuestionPrompt();
 
-    // Chọn 3 từ nhiễu khác nhau
-    const others = words.filter(w => w.id !== target.id);
-    this.shuffle(others);
-    const distractors = others.slice(0, 3);
+    // 3. Xào ngẫu nhiên 3 đáp án nhiễu (ưu tiên những từ ít xuất hiện gần đây nhất)
+    const pool = this.getWordPool();
+    const candidates = pool.filter(w => w.id !== target.id);
 
-    // Xáo trộn 4 đáp án
-    this.options = [target, ...distractors];
-    this.shuffle(this.options);
+    candidates.sort((a, b) => {
+      const countA = this.distractorCounts[a.id] || 0;
+      const countB = this.distractorCounts[b.id] || 0;
+      if (countA !== countB) return countA - countB;
+      return Math.random() - 0.5;
+    });
+
+    const poolSlice = candidates.slice(0, Math.min(candidates.length, 8));
+    this.shuffle(poolSlice);
+    const distractors = poolSlice.slice(0, 3);
+
+    // Ghi nhận tần suất xuất hiện của từ nhiễu
+    distractors.forEach(d => {
+      this.distractorCounts[d.id] = (this.distractorCounts[d.id] || 0) + 1;
+    });
+
+    // 4. Chống lặp vị trí ô đúng trong lưới 2x2 (không bao giờ trùng với index câu trước)
+    const availableIndices = [0, 1, 2, 3].filter(idx => idx !== this.lastCorrectIndex);
+    const correctIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+    this.lastCorrectIndex = correctIndex;
+
+    // Xếp 3 từ nhiễu vào 3 vị trí còn lại sau khi xào trộn
+    this.shuffle(distractors);
+    this.options = new Array(4);
+    this.options[correctIndex] = target;
+
+    let distractorIdx = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i !== correctIndex) {
+        this.options[i] = distractors[distractorIdx++];
+      }
+    }
 
     // Tải trước đồng thời audio tiếng Việt và tiếng Anh để xóa độ trễ
     this.preloadPromise = Promise.all([
@@ -157,7 +290,7 @@ const QuizScreen = {
       }
     }
 
-    // Render 4 thẻ ô lớn
+    // Render 4 thẻ ô lớn với object-contain trên nền trắng sạch
     const gridEl = document.getElementById("quiz-grid");
     if (gridEl) {
       gridEl.innerHTML = this.options.map((opt, idx) => {
@@ -327,15 +460,6 @@ const QuizScreen = {
 
       await AppState.speakText(wrongMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
     }
-  },
-
-  // Thuật toán xáo trộn mảng Fisher-Yates
-  shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
   }
 };
 
