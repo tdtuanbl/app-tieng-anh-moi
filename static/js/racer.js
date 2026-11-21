@@ -6,10 +6,12 @@ const RacerScreen = {
   playerLane: 1, // 0: Làn trái, 1: Làn giữa, 2: Làn phải
   speedDuration: (() => {
     const saved = localStorage.getItem("dau_racer_speed");
-    return saved ? parseFloat(saved) : 8; // Mặc định 8 giây (Chậm rãi, vừa sức bé 5 tuổi)
+    const val = saved ? parseFloat(saved) : 14;
+    return [14, 10, 7].includes(val) ? val : 14; // Mặc định 14s (Siêu chậm, thong thả cho bé 5 tuổi)
   })(),
   lives: 3,
   isRacing: false,
+  isWaitingForQuestion: false,
   animId: null,
   waveStartTime: null,
   collisionHandled: false,
@@ -486,7 +488,7 @@ const RacerScreen = {
           background-image: linear-gradient(to bottom, #fde047 55%, transparent 55%);
           background-size: 100% 60px;
           background-repeat: repeat-y;
-          animation: roadStripeMove 0.75s linear infinite;
+          animation: roadStripeMove 1.2s linear infinite;
         }
         @keyframes trackRumble {
           0%, 100% { transform: translate(0, 0); }
@@ -544,38 +546,41 @@ const RacerScreen = {
       </style>
 
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative select-none">
-        <!-- THANH TRÊN CÙNG: Điều hướng, Nút Đổi xe, Nút Tốc độ, Nút Loa, Mạng sống -->
-        <div class="flex items-center justify-between w-full px-2 z-20 gap-2">
-          <!-- Cụm nút trái: Chủ đề, Đổi xe & Chọn tốc độ -->
-          <div class="flex items-center gap-1.5 md:gap-2">
-            <button onclick="RacerScreen.exitGame()" class="px-3 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm">
+        <!-- THANH TRÊN CÙNG: Điều hướng, Nút Đổi xe, Nút Tốc độ 3 mức, Nút Loa, Mạng sống -->
+        <div class="flex items-center justify-between w-full px-2 z-20 gap-1.5 md:gap-2">
+          <!-- Cụm nút trái: Chủ đề, Đổi xe & Chọn 3 mức tốc độ -->
+          <div class="flex items-center gap-1 md:gap-1.5">
+            <button onclick="RacerScreen.exitGame()" class="px-3 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
               <span>⬅️</span>
               <span class="hidden sm:inline">Chủ đề</span>
             </button>
-            <button onclick="RacerScreen.openGarage(false)" class="px-3 py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm">
+            <button onclick="RacerScreen.openGarage(false)" class="px-3 py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
               <span>🚗</span>
               <span class="hidden sm:inline">Đổi xe</span>
             </button>
 
-            <!-- NÚT CHUYỂN 2 MỨC TỐC ĐỘ: 🐢 Chậm rãi (~8s) / 🚗 Vừa phải (~5.5s) -->
-            <div class="flex items-center gap-1 bg-white/90 p-1 rounded-2xl shadow-sm border border-slate-200 text-xs font-black">
-              <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(8)" class="px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 8 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+            <!-- NÚT CHỌN 3 MỨC TỐC ĐỘ: 🐌 Siêu chậm (~14s) / 🐢 Chậm rãi (~10s) / 🚗 Vừa phải (~7s) -->
+            <div class="flex items-center gap-0.5 md:gap-1 bg-white/90 p-1 rounded-2xl shadow-sm border border-slate-200 text-[11px] md:text-xs font-black">
+              <button id="btn-speed-super-slow" onclick="RacerScreen.setSpeed(14)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 14 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                🐌 Siêu chậm
+              </button>
+              <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(10)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 10 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
                 🐢 Chậm rãi
               </button>
-              <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(5.5)" class="px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 5.5 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+              <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(7)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 7 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
                 🚗 Vừa phải
               </button>
             </div>
           </div>
 
           <!-- NÚT LOA & BIỂU NGỮ CÂU HỎI TO RÕ -->
-          <button onclick="RacerScreen.playQuestionPrompt()" class="px-3.5 md:px-6 py-2 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-sm md:text-lg shadow-md flex items-center gap-2 transition-all border-2 border-white truncate max-w-[42%]">
-            <span class="text-lg md:text-xl animate-pulse">🔊</span>
+          <button onclick="RacerScreen.playQuestionPrompt()" class="px-3 md:px-5 py-2 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-xs md:text-base shadow-md flex items-center gap-1.5 md:gap-2 transition-all border-2 border-white truncate max-w-[38%]">
+            <span class="text-base md:text-xl animate-pulse">🔊</span>
             <span id="racer-keyword-display" class="truncate">Đậu ơi, tìm từ vựng...</span>
           </button>
 
           <!-- CỤM PHẢI: Mạng sống ❤️❤️❤️ -->
-          <div id="racer-hearts" class="flex items-center text-lg md:text-xl tracking-widest bg-white/90 px-2.5 py-1.5 rounded-2xl shadow-sm border border-rose-100 shrink-0">
+          <div id="racer-hearts" class="flex items-center text-base md:text-xl tracking-widest bg-white/90 px-2.5 py-1.5 rounded-2xl shadow-sm border border-rose-100 shrink-0">
             ❤️❤️❤️
           </div>
         </div>
@@ -589,19 +594,19 @@ const RacerScreen = {
 
           <!-- LÀN 0 (Trái) -->
           <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-0" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-0" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 1 (Giữa) -->
           <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-1" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-1" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 2 (Phải) -->
           <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-2" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-2" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
@@ -617,7 +622,7 @@ const RacerScreen = {
 
           <!-- LỚP PHỦ THÔNG BÁO LƯỢT ĐUA / HƯỚNG DẪN -->
           <div id="racer-prompt-banner" class="absolute top-4 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white font-extrabold text-base shadow-lg text-center pointer-events-none z-30">
-            Đậu chạm vào làn đường hoặc vuốt sang trái/phải để chuyển xe nhé!
+            Lắng nghe câu hỏi rồi lái xe nhé! 👂🚗
           </div>
         </div>
 
@@ -704,6 +709,7 @@ const RacerScreen = {
   // Mở Gara chọn xe
   openGarage(isStartOfGame = false) {
     this.isRacing = false;
+    this.isWaitingForQuestion = false;
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -784,24 +790,27 @@ const RacerScreen = {
     }, { passive: true });
   },
 
-  // Chọn tốc độ trôi (8s: Chậm rãi, 5.5s: Vừa phải)
+  // Chọn tốc độ trôi (14s: Siêu chậm, 10s: Chậm rãi, 7s: Vừa phải)
   setSpeed(seconds) {
-    this.speedDuration = Number(seconds) || 8;
+    this.speedDuration = Number(seconds) || 14;
     try {
       localStorage.setItem("dau_racer_speed", this.speedDuration.toString());
     } catch (e) {
       console.warn("Could not save speed to localStorage", e);
     }
+    const btnSuper = document.getElementById("btn-speed-super-slow");
     const btnSlow = document.getElementById("btn-speed-slow");
     const btnMed = document.getElementById("btn-speed-medium");
-    if (btnSlow && btnMed) {
-      if (this.speedDuration === 8) {
-        btnSlow.className = "px-2.5 py-1.5 rounded-xl transition-all bg-amber-400 text-slate-900 shadow-sm";
-        btnMed.className = "px-2.5 py-1.5 rounded-xl transition-all text-slate-600 hover:bg-slate-100";
-      } else {
-        btnMed.className = "px-2.5 py-1.5 rounded-xl transition-all bg-amber-400 text-slate-900 shadow-sm";
-        btnSlow.className = "px-2.5 py-1.5 rounded-xl transition-all text-slate-600 hover:bg-slate-100";
-      }
+    if (btnSuper && btnSlow && btnMed) {
+      btnSuper.className = (this.speedDuration === 14)
+        ? "px-2 md:px-2.5 py-1.5 rounded-xl transition-all bg-amber-400 text-slate-900 shadow-sm"
+        : "px-2 md:px-2.5 py-1.5 rounded-xl transition-all text-slate-600 hover:bg-slate-100";
+      btnSlow.className = (this.speedDuration === 10)
+        ? "px-2 md:px-2.5 py-1.5 rounded-xl transition-all bg-amber-400 text-slate-900 shadow-sm"
+        : "px-2 md:px-2.5 py-1.5 rounded-xl transition-all text-slate-600 hover:bg-slate-100";
+      btnMed.className = (this.speedDuration === 7)
+        ? "px-2 md:px-2.5 py-1.5 rounded-xl transition-all bg-amber-400 text-slate-900 shadow-sm"
+        : "px-2 md:px-2.5 py-1.5 rounded-xl transition-all text-slate-600 hover:bg-slate-100";
     }
   },
 
@@ -819,6 +828,7 @@ const RacerScreen = {
   // Thoát game quay lại Home
   exitGame() {
     this.isRacing = false;
+    this.isWaitingForQuestion = false;
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -843,15 +853,24 @@ const RacerScreen = {
     this.animId = requestAnimationFrame(loop);
   },
 
-  // Cập nhật vị trí các thẻ: Mất đúng 7.5 - 8.5s để đi từ đỉnh xuống mũi xe
+  // Cập nhật vị trí các thẻ: Đợi đọc xong câu hỏi mới trôi xuống với vận tốc ~14s / 10s / 7s
   updateWave(currentTime) {
-    if (!this.waveStartTime) return;
+    if (this.isWaitingForQuestion || !this.waveStartTime) {
+      // Khi đang chờ cô giáo đọc xong câu hỏi: Thẻ giữ cố định tại vạch xuất phát (top: 2%)
+      for (let lane = 0; lane < 3; lane++) {
+        const el = document.getElementById(`lane-item-${lane}`);
+        if (el && !this.cardsState[lane].hit) {
+          el.style.top = "2%";
+        }
+      }
+      return;
+    }
 
     const elapsed = currentTime - this.waveStartTime;
     const durationMs = this.speedDuration * 1000;
 
-    // Vị trí trôi từ -20% (trên đỉnh) xuống mũi xe tại 68% trong đúng durationMs (8s hoặc 5.5s)
-    const topPercentage = -20 + (elapsed / durationMs) * 88;
+    // Vị trí trôi từ 2% (vạch xuất phát) xuống mũi xe tại 68% trong đúng durationMs (~14s / 10s / 7s)
+    const topPercentage = 2 + (elapsed / durationMs) * 66;
 
     // Cập nhật tọa độ độc lập cho từng thẻ
     for (let lane = 0; lane < 3; lane++) {
@@ -867,7 +886,7 @@ const RacerScreen = {
       }
     }
 
-    // XỬ LÝ VA CHẠM KHI CỤM THẺ ĐI NGANG QUA ĐẦU XE (khoảng 68% chiều cao đường đua)
+    // XỬ LÝ VA CHẠM KHI CỤM THẺ ĐI NGANG QUA ĐẦU XE (tại 68% chiều cao đường đua)
     if (!this.collisionHandled && topPercentage >= 68) {
       this.collisionHandled = true;
       this.handleCollision(topPercentage);
@@ -880,7 +899,8 @@ const RacerScreen = {
   },
 
   // Thả đợt 3 từ vựng mới nối tiếp mượt mà
-  startNextWave(isRetry = false) {
+  async startNextWave(isRetry = false) {
+    if (!this.isRacing) return;
     const words = AppState.currentTopic.words;
     
     // Nếu là thử lại lượt vừa sai, giữ nguyên currentWord để bé làm chủ từ vựng
@@ -939,12 +959,12 @@ const RacerScreen = {
     ];
     this.collisionHandled = false;
 
-    // Cập nhật nội dung & kích thước 3 thẻ lớn 90%
+    // Cập nhật nội dung & đặt 3 thẻ lớn 90% DỪNG TẠI VẠCH XUẤT PHÁT (top: 2%)
     for (let lane = 0; lane < 3; lane++) {
       const itemEl = document.getElementById(`lane-item-${lane}`);
       if (itemEl) {
         const item = this.options[lane];
-        itemEl.style.top = "-220px";
+        itemEl.style.top = "2%";
         itemEl.style.opacity = "1";
         itemEl.classList.remove("shake-wrong", "border-rose-500");
         itemEl.classList.add("border-amber-300");
@@ -969,17 +989,30 @@ const RacerScreen = {
       }
     }
 
-    // Bắt đầu tính thời gian trôi của cụm thẻ mới
+    const banner = document.getElementById("racer-prompt-banner");
+    if (banner) {
+      banner.textContent = `Lắng nghe câu hỏi rồi lái xe nhé! 👂🚗`;
+    }
+
+    // TẠM DỪNG CỤM THẺ TẠI VẠCH XUẤT PHÁT TRONG KHI ĐỌC CÂU HỎI
+    this.isWaitingForQuestion = true;
+    this.waveStartTime = null;
+
+    // Đợi phát âm xong câu hỏi (hoặc tối đa 2.5s nếu tắt tiếng / mạng chậm)
+    const promptPromise = this.playQuestionPrompt();
+    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
+    await Promise.race([promptPromise, timeoutPromise]);
+
+    if (!this.isRacing) return;
+
+    // NGAY KHI ĐỌC DỨT CÂU HỎI: BẮT ĐẦU CHO CỤM THẺ TRÔI XUỐNG
+    this.isWaitingForQuestion = false;
     this.waveStartTime = performance.now();
 
-    const banner = document.getElementById("racer-prompt-banner");
     if (banner) {
       const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
       banner.textContent = `Lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
     }
-
-    // Phát âm câu hỏi liền mạch trong khi cụm thẻ bắt đầu trôi xuống liên tục
-    this.playQuestionPrompt();
   },
 
   // Phát câu hỏi nối âm liền mạch không khoảng khựng
@@ -1174,7 +1207,7 @@ const RacerScreen = {
           const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
           const enUrl = await this.fetchAudioUrl(this.currentWord.en, "en");
           if (viUrl && enUrl) {
-            this.playSeamlessSequence([viUrl, enUrl]);
+            await this.playSeamlessSequence([viUrl, enUrl]);
           } else {
             AppState.speakText("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
           }
