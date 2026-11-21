@@ -231,8 +231,8 @@ const RacerScreen = {
         const item = this.options[lane];
         itemEl.style.top = "-140px";
         const visualHtml = item.word.image_url ? `
-          <div class="w-full flex-1 rounded-xl overflow-hidden relative flex items-center justify-center bg-slate-100">
-            <img src="${item.word.image_url}" alt="${item.word.en}" class="w-full h-full object-cover rounded-xl shadow-md" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="w-full flex-1 rounded-xl overflow-hidden relative flex items-center justify-center bg-white p-1">
+            <img src="${item.word.image_url}" alt="${item.word.en}" class="w-full h-full object-contain rounded-xl" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
             <div style="display:none;" class="w-full h-full items-center justify-center text-4xl filter drop-shadow-sm">
               ${item.word.visual}
             </div>

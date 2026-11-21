@@ -1,6 +1,7 @@
 // Quản lý trạng thái toàn cục ứng dụng học tiếng Anh cho bé Đậu
 const AppState = {
   voiceMode: localStorage.getItem("dau_voice_mode") || "bilingual", // "bilingual" | "english"
+  playbackRate: parseFloat(localStorage.getItem("dau_playback_rate") || "1.2"),
   stars: parseInt(localStorage.getItem("dau_stars") || "0", 10),
   topics: [],
   currentTopic: null,
@@ -11,6 +12,16 @@ const AppState = {
   async init() {
     this.updateStarsDisplay();
     this.updateVoiceModeUI();
+    this.updatePlaybackRateUI();
+    this.applyPlaybackRate();
+
+    // Đảm bảo luôn giữ tốc độ đọc mỗi khi audio phát trên iPad/Safari
+    if (this.audioPlayer) {
+      this.audioPlayer.addEventListener("play", () => {
+        this.applyPlaybackRate();
+      });
+    }
+
     await this.fetchTopics();
   },
 
@@ -47,6 +58,41 @@ const AppState = {
     } else {
       btn.innerHTML = `<span class="text-lg">🇬🇧</span> <span>100% Tiếng Anh</span>`;
       btn.className = "px-3.5 py-1.5 rounded-2xl bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95";
+    }
+  },
+
+  // Áp dụng tốc độ đọc cho AudioPlayer
+  applyPlaybackRate() {
+    if (this.audioPlayer) {
+      this.audioPlayer.playbackRate = this.playbackRate;
+      this.audioPlayer.defaultPlaybackRate = this.playbackRate;
+    }
+  },
+
+  // Xoay vòng tốc độ đọc: 1.0x (Chậm) -> 1.2x (Vừa - Mặc định) -> 1.4x (Nhanh) -> 1.0x
+  togglePlaybackRate() {
+    let nextRate = 1.2;
+    if (Math.abs(this.playbackRate - 1.0) < 0.05) {
+      nextRate = 1.2;
+    } else if (Math.abs(this.playbackRate - 1.2) < 0.05) {
+      nextRate = 1.4;
+    } else {
+      nextRate = 1.0;
+    }
+    this.setPlaybackRate(nextRate);
+  },
+
+  setPlaybackRate(rate) {
+    this.playbackRate = rate;
+    localStorage.setItem("dau_playback_rate", rate.toString());
+    this.applyPlaybackRate();
+    this.updatePlaybackRateUI();
+  },
+
+  updatePlaybackRateUI() {
+    const label = document.getElementById("speed-label");
+    if (label) {
+      label.textContent = `Tốc độ: ${this.playbackRate}x`;
     }
   },
 
@@ -110,6 +156,7 @@ const AppState = {
         };
 
         this.audioPlayer.src = data.url;
+        this.applyPlaybackRate();
         this.audioPlayer.play().catch(() => {
           if (this.currentAudioResolve === resolve) {
             this.currentAudioResolve = null;

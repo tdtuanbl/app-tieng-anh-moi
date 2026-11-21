@@ -58,8 +58,13 @@
       </div>
     </div>
 
-    <!-- Góc phải: Nút gạt chế độ giọng nói + Nút về Trang chủ -->
-    <div class="flex items-center gap-3">
+    <!-- Góc phải: Nút tốc độ đọc + Nút gạt chế độ giọng nói + Nút về Trang chủ -->
+    <div class="flex items-center gap-2 md:gap-3">
+      <button id="btn-speed" onclick="AppState.togglePlaybackRate()" class="px-3 py-1.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm transition-all shadow-sm flex items-center gap-1.5 active:scale-95" title="Thay đổi tốc độ đọc">
+        <span class="text-base">⚡</span>
+        <span id="speed-label">Tốc độ: 1.2x</span>
+      </button>
+
       <button id="btn-voice-mode" onclick="AppState.toggleVoiceMode()" class="px-3.5 py-1.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95">
         <span class="text-lg">🇻🇳+🇬🇧</span>
         <span>Song ngữ</span>
@@ -98,11 +103,11 @@
   </main>
 
   <!-- Script Khởi tạo -->
-  <script src="/static/js/state.js?v=8"></script>
-  <script src="/static/js/home.js?v=8"></script>
-  <script src="/static/js/learn.js?v=8"></script>
-  <script src="/static/js/quiz.js?v=8"></script>
-  <script src="/static/js/racer.js?v=8"></script>
+  <script src="/static/js/state.js?v=9"></script>
+  <script src="/static/js/home.js?v=9"></script>
+  <script src="/static/js/learn.js?v=9"></script>
+  <script src="/static/js/quiz.js?v=9"></script>
+  <script src="/static/js/racer.js?v=9"></script>
   <script>
     // Mở khóa AudioContext và quyền phát âm thanh trên Safari iPadOS
     function unlockAudioAndStart() {

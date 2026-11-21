@@ -74,8 +74,8 @@ const LearnScreen = {
 
             <!-- Khung hình ảnh thật cỡ lớn hoặc Emoji trực quan -->
             ${word.image_url ? `
-              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-amber-50/50 flex items-center justify-center relative">
-                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-cover rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-white p-1 flex items-center justify-center relative">
+                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
                 <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md">
                   ${word.visual}
                 </div>

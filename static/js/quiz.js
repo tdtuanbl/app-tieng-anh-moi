@@ -162,8 +162,8 @@ const QuizScreen = {
     if (gridEl) {
       gridEl.innerHTML = this.options.map((opt, idx) => {
         const visualContent = opt.image_url ? `
-          <div class="w-full h-36 md:h-44 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center relative mb-2 shadow-inner border border-slate-100">
-            <img src="${opt.image_url}" alt="${opt.en}" class="w-full h-full object-cover rounded-2xl shadow-md transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <div class="w-full h-36 md:h-44 rounded-2xl overflow-hidden bg-white p-1 flex items-center justify-center relative mb-2 shadow-inner border border-slate-100">
+            <img src="${opt.image_url}" alt="${opt.en}" class="w-full h-full object-contain rounded-2xl transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
             <div style="display:none;" class="w-full h-full items-center justify-center text-6xl md:text-7xl filter drop-shadow-sm">
               ${opt.visual}
             </div>
@@ -216,6 +216,10 @@ const QuizScreen = {
         switched = true;
         player.ontimeupdate = null;
         player.src = enUrl;
+        if (AppState.playbackRate) {
+          player.playbackRate = AppState.playbackRate;
+          player.defaultPlaybackRate = AppState.playbackRate;
+        }
         player.onended = cleanup;
         player.onerror = cleanup;
         player.play().catch(cleanup);
@@ -239,6 +243,10 @@ const QuizScreen = {
       player.onerror = cleanup;
 
       player.src = viUrl;
+      if (AppState.playbackRate) {
+        player.playbackRate = AppState.playbackRate;
+        player.defaultPlaybackRate = AppState.playbackRate;
+      }
       player.play().catch(cleanup);
     });
   },
