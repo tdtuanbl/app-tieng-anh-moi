@@ -6,15 +6,20 @@ const RacerScreen = {
   playerLane: 1, // 0: Làn trái, 1: Làn giữa, 2: Làn phải
   speedDuration: 7, // Mặc định 7 giây
   lives: 3,
-  isDropping: false,
+  isRacing: false,
   animId: null,
-  startTime: null,
+  waveStartTime: null,
+  collisionHandled: false,
+  cardsState: [
+    { hit: false, freezeTop: 0 },
+    { hit: false, freezeTop: 0 },
+    { hit: false, freezeTop: 0 }
+  ],
   targetLaneIndex: 1,
   lastQuestionIndex: -1,
   lastPraise: "",
   preloadPromise: null,
   currentTemplate: null,
-  isRoundResolving: false,
 
   // Các mẫu câu hỏi sinh động xoay vòng ngẫu nhiên (không lặp lại câu liền trước)
   QUESTION_TEMPLATES: [
@@ -470,6 +475,16 @@ const RacerScreen = {
 
     container.innerHTML = `
       <style>
+        @keyframes roadStripeMove {
+          0% { background-position-y: 0px; }
+          100% { background-position-y: 60px; }
+        }
+        .road-stripe-animated {
+          background-image: linear-gradient(to bottom, #fde047 55%, transparent 55%);
+          background-size: 100% 60px;
+          background-repeat: repeat-y;
+          animation: roadStripeMove 0.45s linear infinite;
+        }
         @keyframes trackRumble {
           0%, 100% { transform: translate(0, 0); }
           20% { transform: translate(-4px, 3px); }
@@ -563,26 +578,30 @@ const RacerScreen = {
         <!-- ĐƯỜNG ĐUA 3 LÀN XE (KHUNG CHÍNH) -->
         <div id="racer-track" class="flex-1 w-full my-2 relative rounded-[2.5rem] bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 border-4 border-slate-600 shadow-2xl overflow-hidden flex touch-none">
           
+          <!-- VẠCH PHÂN LÀN CHUYỂN ĐỘNG LIÊN TỤC -->
+          <div class="absolute left-1/3 top-0 bottom-0 w-1.5 -ml-[3px] road-stripe-animated pointer-events-none z-0"></div>
+          <div class="absolute left-2/3 top-0 bottom-0 w-1.5 -ml-[3px] road-stripe-animated pointer-events-none z-0"></div>
+
           <!-- LÀN 0 (Trái) -->
-          <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full border-r-2 border-dashed border-yellow-300/60 relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-0" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden transition-opacity">
+          <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+            <div id="lane-item-0" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 1 (Giữa) -->
-          <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full border-r-2 border-dashed border-yellow-300/60 relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-1" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden transition-opacity">
+          <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+            <div id="lane-item-1" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 2 (Phải) -->
-          <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center">
-            <div id="lane-item-2" class="absolute -top-36 w-24 h-24 md:w-28 md:h-28 bg-white rounded-2xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-1.5 text-center pointer-events-none overflow-hidden transition-opacity">
+          <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+            <div id="lane-item-2" class="absolute -top-56 left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- XE CỦA BÉ ĐẬU Ở ĐÁY ĐƯỜNG ĐUA (Cỡ lớn 78% làn đường, nằm gọn gàng) -->
-          <div id="player-car" class="absolute bottom-5 w-1/3 flex justify-center items-center transition-all duration-200 pointer-events-none z-10" style="left: 33.333%;">
+          <div id="player-car" class="absolute bottom-5 w-1/3 flex justify-center items-center transition-all duration-200 pointer-events-none z-20" style="left: 33.333%;">
             <div id="car-inner" class="w-[78%] max-w-[130px] aspect-[100/150] flex items-center justify-center transition-transform">
               ${this.getCarSVG(this.selectedCar)}
             </div>
@@ -592,7 +611,7 @@ const RacerScreen = {
           <div id="shatter-container" class="absolute inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
           <!-- LỚP PHỦ THÔNG BÁO LƯỢT ĐUA / HƯỚNG DẪN -->
-          <div id="racer-prompt-banner" class="absolute top-4 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white font-extrabold text-base shadow-lg text-center pointer-events-none">
+          <div id="racer-prompt-banner" class="absolute top-4 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white font-extrabold text-base shadow-lg text-center pointer-events-none z-30">
             Đậu chạm vào làn đường hoặc vuốt sang trái/phải để chuyển xe nhé!
           </div>
         </div>
@@ -679,7 +698,11 @@ const RacerScreen = {
 
   // Mở Gara chọn xe
   openGarage(isStartOfGame = false) {
-    this.stopDropAnimation();
+    this.isRacing = false;
+    if (this.animId) {
+      cancelAnimationFrame(this.animId);
+      this.animId = null;
+    }
     this.updateGarageCardsUI();
     const modal = document.getElementById("racer-garage-modal");
     if (modal) {
@@ -694,7 +717,8 @@ const RacerScreen = {
       modal.classList.add("hidden");
     }
     this.updateCarSVG();
-    this.startRound();
+    this.startContinuousLoop();
+    this.startNextWave();
   },
 
   // Chạm chọn 1 loại xe trong Gara
@@ -784,18 +808,75 @@ const RacerScreen = {
 
   // Thoát game quay lại Home
   exitGame() {
-    this.stopDropAnimation();
+    this.isRacing = false;
+    if (this.animId) {
+      cancelAnimationFrame(this.animId);
+      this.animId = null;
+    }
+    AppState.stopAudio();
     AppState.showScreen("screen-home");
   },
 
-  // Khởi động lượt chơi mới
-  async startRound() {
-    this.stopDropAnimation();
-    this.isRoundResolving = false;
+  // VÒNG LẶP CHUYỂN ĐỘNG LIÊN TỤC 100% (KHÔNG BAO GIỜ DỪNG KHI VA CHẠM)
+  startContinuousLoop() {
+    if (this.animId) cancelAnimationFrame(this.animId);
+    this.isRacing = true;
+
+    const loop = (currentTime) => {
+      if (!this.isRacing) return;
+
+      this.updateWave(currentTime);
+
+      this.animId = requestAnimationFrame(loop);
+    };
+
+    this.animId = requestAnimationFrame(loop);
+  },
+
+  // Cập nhật vị trí các thẻ và xử lý va chạm độc lập từng thẻ
+  updateWave(currentTime) {
+    if (!this.waveStartTime) return;
+
+    const elapsed = currentTime - this.waveStartTime;
+    const durationMs = this.speedDuration * 1000;
+
+    // Vị trí trôi từ -22% (trên đỉnh) xuống 118% (khỏi màn hình)
+    const topPercentage = -22 + (elapsed / durationMs) * 140;
+
+    // Cập nhật tọa độ độc lập cho từng thẻ
+    for (let lane = 0; lane < 3; lane++) {
+      const el = document.getElementById(`lane-item-${lane}`);
+      if (!el) continue;
+
+      if (this.cardsState[lane].hit) {
+        // Chỉ riêng thẻ bị đâm đúng: Dừng đứng lại ngay tại tọa độ va chạm
+        el.style.top = `${this.cardsState[lane].freezeTop}%`;
+      } else {
+        // Các thẻ còn lại: Vẫn giữ nguyên vận tốc và tiếp tục di chuyển trôi xuống dưới
+        el.style.top = `${topPercentage}%`;
+      }
+    }
+
+    // XỬ LÝ VA CHẠM KHI CỤM THẺ ĐI NGANG QUA ĐẦU XE (khoảng 68% chiều cao đường đua)
+    if (!this.collisionHandled && topPercentage >= 68) {
+      this.collisionHandled = true;
+      this.handleCollision(topPercentage);
+    }
+
+    // KHI CÁC THẺ TRÔI QUA HẲN ĐÁY MÀN HÌNH (>= 118%): NỐI TIẾP CỤM TỪ MỚI MƯỢT MÀ
+    if (topPercentage >= 118) {
+      this.startNextWave();
+    }
+  },
+
+  // Thả đợt 3 từ vựng mới nối tiếp mượt mà
+  startNextWave(isRetry = false) {
     const words = AppState.currentTopic.words;
     
-    // Chọn 1 từ đích
-    this.currentWord = words[Math.floor(Math.random() * words.length)];
+    // Nếu là thử lại lượt vừa sai, giữ nguyên currentWord để bé làm chủ từ vựng
+    if (!isRetry || !this.currentWord) {
+      this.currentWord = words[Math.floor(Math.random() * words.length)];
+    }
     
     // Chọn 2 từ sai
     const others = words.filter(w => w.id !== this.currentWord.id);
@@ -840,41 +921,55 @@ const RacerScreen = {
       }
     }
 
-    // Cập nhật nội dung 3 thẻ ở đỉnh đường đua
+    // Khởi tạo trạng thái chuyển động độc lập cho 3 thẻ
+    this.cardsState = [
+      { hit: false, freezeTop: 0 },
+      { hit: false, freezeTop: 0 },
+      { hit: false, freezeTop: 0 }
+    ];
+    this.collisionHandled = false;
+
+    // Cập nhật nội dung & kích thước 3 thẻ lớn 90%
     for (let lane = 0; lane < 3; lane++) {
       const itemEl = document.getElementById(`lane-item-${lane}`);
       if (itemEl) {
         const item = this.options[lane];
-        itemEl.style.top = "-140px";
+        itemEl.style.top = "-220px";
         itemEl.style.opacity = "1";
         itemEl.classList.remove("shake-wrong", "border-rose-500");
         itemEl.classList.add("border-amber-300");
 
         const visualHtml = item.word.image_url ? `
-          <div class="w-full flex-1 rounded-xl overflow-hidden relative flex items-center justify-center bg-white p-1">
+          <div class="w-full aspect-square rounded-2xl overflow-hidden relative flex items-center justify-center bg-white p-1.5 shadow-inner border border-slate-100">
             <img src="${item.word.image_url}" alt="${item.word.en}" class="w-full h-full object-contain rounded-xl" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-            <div style="display:none;" class="w-full h-full items-center justify-center text-4xl filter drop-shadow-sm">
+            <div style="display:none;" class="w-full h-full items-center justify-center text-5xl md:text-6xl filter drop-shadow-sm">
               ${item.word.visual}
             </div>
           </div>
         ` : `
-          <div class="w-full flex-1 flex items-center justify-center text-4xl md:text-5xl filter drop-shadow-sm">
+          <div class="w-full aspect-square flex items-center justify-center text-5xl md:text-6xl filter drop-shadow-sm bg-amber-50/50 rounded-2xl">
             ${item.word.visual}
           </div>
         `;
 
         itemEl.innerHTML = `
           ${visualHtml}
-          <span class="text-[11px] md:text-xs font-black text-slate-800 capitalize leading-tight py-0.5 truncate max-w-full">${item.word.en}</span>
+          <span class="text-xs md:text-sm font-black text-slate-800 capitalize leading-tight py-1 truncate max-w-full tracking-wide">${item.word.en}</span>
         `;
       }
     }
 
-    // BƯỚC 1: PHÁT ÂM HỎI TO & NỐI TIẾNG VIỆT -> TIẾNG ANH LIỀN MẠCH
-    await this.playQuestionPrompt();
+    // Bắt đầu tính thời gian trôi của cụm thẻ mới
+    this.waveStartTime = performance.now();
 
-    // BƯỚC 2: THẢ 3 HÌNH TRÔI CHẬM
-    this.startDropAnimation();
+    const banner = document.getElementById("racer-prompt-banner");
+    if (banner) {
+      const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
+      banner.textContent = `Lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
+    }
+
+    // Phát âm câu hỏi liền mạch trong khi cụm thẻ bắt đầu trôi xuống liên tục
+    this.playQuestionPrompt();
   },
 
   // Phát câu hỏi nối âm liền mạch không khoảng khựng
@@ -887,11 +982,9 @@ const RacerScreen = {
         if (this.preloadPromise) {
           urls = await this.preloadPromise;
         }
-        // Kiểm tra xem tất cả URL tải trước có hợp lệ không
         if (urls && Array.isArray(urls) && urls.every(u => !!u)) {
           await this.playSeamlessSequence(urls);
         } else {
-          // Fallback an toàn nếu mạng trễ
           const parts = this.currentTemplate.parts(this.currentWord.en);
           for (const p of parts) {
             await AppState.speakText(p.text, p.lang);
@@ -906,56 +999,8 @@ const RacerScreen = {
     }
   },
 
-  // Bắt đầu hiệu ứng trôi chậm 3 thẻ hình
-  startDropAnimation() {
-    this.isDropping = true;
-    this.startTime = performance.now();
-    const durationMs = this.speedDuration * 1000;
-
-    const banner = document.getElementById("racer-prompt-banner");
-    if (banner) {
-      const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
-      banner.textContent = `Lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
-    }
-
-    const animate = (currentTime) => {
-      if (!this.isDropping) return;
-
-      const elapsed = currentTime - this.startTime;
-      const progress = Math.min(1, elapsed / durationMs);
-
-      // Tính vị trí Y từ đỉnh (0%) tới khu vực ngang xe (khoảng 76% chiều cao đường đua)
-      const topPercentage = progress * 76;
-
-      for (let lane = 0; lane < 3; lane++) {
-        const el = document.getElementById(`lane-item-${lane}`);
-        if (el) {
-          el.style.top = `${topPercentage}%`;
-        }
-      }
-
-      // XỬ LÝ VA CHẠM KHI 3 HÌNH ĐI NGANG QUA XE CỦA ĐẬU
-      if (progress >= 0.95) {
-        this.handleCollision();
-        return;
-      }
-
-      this.animId = requestAnimationFrame(animate);
-    };
-
-    this.animId = requestAnimationFrame(animate);
-  },
-
-  stopDropAnimation() {
-    this.isDropping = false;
-    if (this.animId) {
-      cancelAnimationFrame(this.animId);
-      this.animId = null;
-    }
-  },
-
   // Kích hoạt HIỆU ỨNG VỠ TUNG (Shatter / Explosion Particles)
-  triggerShatterExplosion(laneIndex, imageUrl, emojiVisual) {
+  triggerShatterExplosion(laneIndex, imageUrl, emojiVisual, impactTop) {
     const track = document.getElementById("racer-track");
     const shatterContainer = document.getElementById("shatter-container");
     if (!track || !shatterContainer) return;
@@ -966,9 +1011,9 @@ const RacerScreen = {
     track.classList.add("track-rumble");
     setTimeout(() => track.classList.remove("track-rumble"), 400);
 
-    // Điểm nổ ở trung tâm làn xe va chạm (khoảng 76% từ trên xuống)
+    // Điểm nổ ở trung tâm làn xe va chạm
     const lanePercent = (laneIndex * 33.333) + 16.666;
-    const topPercent = 76;
+    const topPercent = impactTop || 68;
 
     shatterContainer.innerHTML = "";
 
@@ -1047,12 +1092,8 @@ const RacerScreen = {
     }, 900);
   },
 
-  // Xử lý va chạm
-  async handleCollision() {
-    if (this.isRoundResolving) return;
-    this.isRoundResolving = true;
-    this.stopDropAnimation();
-
+  // Xử lý va chạm: Độc lập từng thẻ, KHÔNG DỪNG VÒNG LẶP ĐƯỜNG ĐUA
+  async handleCollision(currentTop) {
     const hitItem = this.options[this.playerLane];
 
     if (hitItem && hitItem.isTarget) {
@@ -1062,18 +1103,26 @@ const RacerScreen = {
       // Âm thanh chiến thắng Ting-ting tức thì
       this.playVictoryChime();
 
-      // Kích hoạt HIỆU ỨNG VỠ TUNG (Shatter Explosion Particles)
+      // CHỈ RIÊNG THẺ BỊ ĐÂM: Đặt hit = true và dừng đứng lại ngay tại tọa độ va chạm
+      this.cardsState[this.playerLane].hit = true;
+      this.cardsState[this.playerLane].freezeTop = currentTop;
+
       const targetCard = document.getElementById(`lane-item-${this.playerLane}`);
       if (targetCard) {
-        targetCard.style.opacity = "0"; // Ẩn thẻ ban đầu để mảnh vỡ bung ra
+        targetCard.style.opacity = "0"; // Ẩn thẻ ban đầu để mảnh vỡ bung ra tại chỗ
       }
+
+      // Kích hoạt HIỆU ỨNG VỠ TUNG tại tọa độ va chạm
       this.triggerShatterExplosion(
         this.playerLane,
         hitItem.word.image_url,
-        hitItem.word.visual
+        hitItem.word.visual,
+        currentTop
       );
 
-      // Chọn câu khen ngợi ngẫu nhiên (không lặp câu liền trước)
+      // (2 THẺ CÒN LẠI VẪN TIẾP TỤC TRÔI XUỐNG DƯỚI TỰ NHIÊN NHỜ VÒNG LẶP KHÔNG DỪNG)
+
+      // Lời khen ngợi hào hứng
       const praise = (AppState.voiceMode === "bilingual")
         ? this.getRandomPraise()
         : "Spot on, Đậu! You are amazing!";
@@ -1083,17 +1132,12 @@ const RacerScreen = {
         banner.innerHTML = `<span class="text-amber-300 font-black text-lg animate-bounce">🌟 ${praise} +2 ⭐</span>`;
       }
 
-      // Đọc lời khen ngợi hào hứng
-      await AppState.speakText(praise, (AppState.voiceMode === "bilingual") ? "vi" : "en");
-
-      // Sau khoảng 0.8–1.0s, tự động chuyển tiếp mượt mà sang cụm 3 từ mới
-      setTimeout(() => {
-        this.startRound();
-      }, 900);
+      // Phát âm lời khen ngợi (không chặn vòng lặp trôi của 2 thẻ kia)
+      AppState.speakText(praise, (AppState.voiceMode === "bilingual") ? "vi" : "en");
 
     } else {
       // 2. ĐÂM NHẦM HÌNH SAI!
-      // Không phạt thua cuộc; xe nảy nhẹ lùi lại vị trí an toàn
+      // Không dừng đường đua, không phạt thua; thẻ sai rung đỏ rồi vẫn tiếp tục trôi qua
       this.playBoingSound();
 
       const carInner = document.getElementById("car-inner");
@@ -1114,54 +1158,23 @@ const RacerScreen = {
         banner.innerHTML = `<span class="text-rose-300 font-black text-base">⚠️ Chưa đúng rồi Đậu ơi, mình thử lại nhé! 👉 "${this.currentWord.en}"</span>`;
       }
 
-      // Cô giáo nhắc dịu dàng: "Chưa đúng rồi Đậu ơi, mình thử lại nhé!" rồi đọc lại từ tiếng Anh cần tìm
+      // Cô giáo nhắc dịu dàng và tiếp tục trôi lượt tiếp theo để bé không bị mất nhịp đua xe
       if (AppState.voiceMode === "bilingual") {
         try {
           const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
           const enUrl = await this.fetchAudioUrl(this.currentWord.en, "en");
           if (viUrl && enUrl) {
-            await this.playSeamlessSequence([viUrl, enUrl]);
+            this.playSeamlessSequence([viUrl, enUrl]);
           } else {
-            await AppState.speakText("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
-            await AppState.speakText(this.currentWord.en, "en");
+            AppState.speakText("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
           }
         } catch (e) {
           console.error("Lỗi âm thanh nhắc sai:", e);
         }
       } else {
-        await AppState.speakText(`Not quite! Try again, find the ${this.currentWord.en}!`, "en");
-      }
-
-      // Cho bé tiếp tục lái xe sang làn đúng thử lại ngay
-      setTimeout(() => {
-        this.replayCurrentRound();
-      }, 600);
-    }
-  },
-
-  // Chạy lại lượt vừa đâm nhầm
-  async replayCurrentRound() {
-    this.stopDropAnimation();
-    this.isRoundResolving = false;
-
-    // Reset vị trí thẻ lên đỉnh và khôi phục viền ban đầu
-    for (let lane = 0; lane < 3; lane++) {
-      const itemEl = document.getElementById(`lane-item-${lane}`);
-      if (itemEl) {
-        itemEl.style.top = "-140px";
-        itemEl.style.opacity = "1";
-        itemEl.classList.remove("shake-wrong", "border-rose-500");
-        itemEl.classList.add("border-amber-300");
+        AppState.speakText(`Not quite! Try again, find the ${this.currentWord.en}!`, "en");
       }
     }
-
-    const banner = document.getElementById("racer-prompt-banner");
-    if (banner) {
-      const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
-      banner.textContent = `Lái ${carName} đón đúng hình "${this.currentWord.en}" nhé! 🚗💨`;
-    }
-
-    this.startDropAnimation();
   },
 
   // Chuyển làn xe
