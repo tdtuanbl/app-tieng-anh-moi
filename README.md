@@ -1,6 +1,14 @@
 # 🥑 App Học Tiếng Anh Cho Bé Đậu
 
-Ứng dụng web tương tác học từ vựng tiếng Anh (Flashcard, Trắc nghiệm tìm hình, Đua xe 3 làn) tích hợp giọng đọc AI và nhận diện giọng nói, tối ưu trải nghiệm màn hình ngang iPadOS.
+Ứng dụng web tương tác học từ vựng tiếng Anh (Flashcard, Trắc nghiệm tìm hình, Đua xe 3 làn) tích hợp giọng đọc AI, tối ưu trải nghiệm màn hình ngang iPadOS.
+
+---
+
+## 📌 QUY TẮC BẮT BUỘC: 100% ẢNH CHỤP THỰC TẾ (REAL PHOTOGRAPHY)
+
+> [!IMPORTANT]
+> **Quy tắc bất di bất dịch của dự án:**
+> Mọi từ vựng trong ứng dụng Tiếng Anh Của Đậu (cả hiện tại lẫn các chủ đề mở rộng về sau) **BẮT BUỘC phải sử dụng ẢNH CHỤP THỰC TẾ (Real Photography)** cận cảnh, rõ nét, tách bạch 1 vật thể duy nhất. **Nghiêm cấm** sử dụng ảnh hoạt hình, icon, emoji 3D, vector, clipart hay tranh vẽ.
 
 ---
 
