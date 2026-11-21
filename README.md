@@ -9,6 +9,8 @@
 > [!IMPORTANT]
 > **Quy tắc bất di bất dịch của dự án:**
 > Mọi từ vựng trong ứng dụng Tiếng Anh Của Đậu (cả hiện tại lẫn các chủ đề mở rộng về sau) **BẮT BUỘC phải sử dụng ẢNH CHỤP THỰC TẾ (Real Photography)** cận cảnh, rõ nét, tách bạch 1 vật thể duy nhất. **Nghiêm cấm** sử dụng ảnh hoạt hình, icon, emoji 3D, vector, clipart hay tranh vẽ.
+> 
+> *Ngoại lệ duy nhất*: Riêng chủ đề Hình học sử dụng hình vẽ hình học chuẩn giáo dục tiểu học (nền trắng sạch, nét viền rõ ràng, tô màu tươi sáng, không chứa chữ).
 
 ---
 

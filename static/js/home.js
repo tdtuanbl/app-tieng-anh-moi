@@ -33,20 +33,20 @@ const HomeScreen = {
 
       return `
         <div onclick="HomeScreen.openTopicModal('${topic.id}')"
-             class="group relative bg-white rounded-[2rem] p-4 md:p-5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center">
+             class="group relative bg-white rounded-[1.75rem] p-3 md:p-3.5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center w-[calc(50%-0.6rem)] md:w-[calc(25%-1rem)] max-w-[245px] shrink-0">
           <!-- Icon lớn sắc nét -->
-          <div class="w-20 h-20 md:w-22 md:h-22 rounded-3xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-4xl md:text-5xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
+          <div class="w-16 h-16 md:w-18 md:h-18 rounded-2xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-3xl md:text-4xl shadow-sm mb-1.5 group-hover:scale-110 transition-transform">
             ${topic.icon || '📚'}
           </div>
           
           <!-- Tên chủ đề -->
-          <h3 class="text-lg md:text-xl font-black text-slate-800 mb-1.5">${topic.title}</h3>
+          <h3 class="text-base md:text-lg font-black text-slate-800 mb-1 leading-tight line-clamp-1">${topic.title}</h3>
           
           <!-- Thanh tiến độ đã học -->
-          <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200/80">
+          <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/80">
             <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-300" style="width: ${percent}%"></div>
           </div>
-          <span class="text-xs font-bold text-slate-500 mt-1">Đã học: ${count}/${total} từ</span>
+          <span class="text-[11px] font-bold text-slate-500 mt-0.5">Đã học: ${count}/${total} từ</span>
         </div>
       `;
     }).join("");
@@ -57,8 +57,8 @@ const HomeScreen = {
           <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Hôm nay bé Đậu muốn khám phá gì nào? 🚀</h2>
         </div>
 
-        <!-- Lưới 6 thẻ chủ đề (2 hàng x 3 cột) cân đối trên iPad ngang -->
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5 flex-1 items-center py-1">
+        <!-- Lưới 7 thẻ chủ đề cân đối (4 trên + 3 dưới căn giữa) trên iPad ngang -->
+        <div class="flex flex-wrap justify-center gap-3.5 md:gap-4 flex-1 items-center content-center py-1 w-full">
           ${cardsHtml}
         </div>
 

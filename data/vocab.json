@@ -1097,6 +1097,98 @@
           "image_url": "/static/images/grass.jpg"
         }
       ]
+    },
+    {
+      "id": "shapes",
+      "title": "Hình học",
+      "icon": "🔷",
+      "color": "bg-indigo-100 text-indigo-800",
+      "words": [
+        {
+          "id": "circle",
+          "en": "circle",
+          "vi": "hình tròn",
+          "visual": "⭕",
+          "image_url": "/static/images/shape_circle.png"
+        },
+        {
+          "id": "square",
+          "en": "square",
+          "vi": "hình vuông",
+          "visual": "🟦",
+          "image_url": "/static/images/shape_square.png"
+        },
+        {
+          "id": "triangle",
+          "en": "triangle",
+          "vi": "hình tam giác",
+          "visual": "🔺",
+          "image_url": "/static/images/shape_triangle.png"
+        },
+        {
+          "id": "rectangle",
+          "en": "rectangle",
+          "vi": "hình chữ nhật",
+          "visual": "🟧",
+          "image_url": "/static/images/shape_rectangle.png"
+        },
+        {
+          "id": "star",
+          "en": "star",
+          "vi": "hình ngôi sao",
+          "visual": "⭐",
+          "image_url": "/static/images/shape_star.png"
+        },
+        {
+          "id": "heart",
+          "en": "heart",
+          "vi": "hình trái tim",
+          "visual": "❤️",
+          "image_url": "/static/images/shape_heart.png"
+        },
+        {
+          "id": "oval",
+          "en": "oval",
+          "vi": "hình bầu dục",
+          "visual": "🥚",
+          "image_url": "/static/images/shape_oval.png"
+        },
+        {
+          "id": "diamond",
+          "en": "diamond",
+          "vi": "hình thoi",
+          "visual": "💠",
+          "image_url": "/static/images/shape_diamond.png"
+        },
+        {
+          "id": "pentagon",
+          "en": "pentagon",
+          "vi": "hình ngũ giác",
+          "visual": "⬟",
+          "image_url": "/static/images/shape_pentagon.png"
+        },
+        {
+          "id": "hexagon",
+          "en": "hexagon",
+          "vi": "hình lục giác",
+          "visual": "⬢",
+          "image_url": "/static/images/shape_hexagon.png"
+        },
+        {
+          "id": "cube",
+          "en": "cube",
+          "vi": "hình lập phương",
+          "visual": "🧊",
+          "image_url": "/static/images/shape_cube.png"
+        },
+        {
+          "id": "cylinder",
+          "en": "cylinder",
+          "vi": "hình trụ",
+          "visual": "🥫",
+          "image_url": "/static/images/shape_cylinder.png"
+        }
+      ]
     }
   ]
 }
