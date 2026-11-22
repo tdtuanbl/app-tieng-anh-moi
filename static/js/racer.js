@@ -482,13 +482,50 @@ const RacerScreen = {
       <style>
         @keyframes roadStripeMove {
           0% { background-position-y: 0px; }
-          100% { background-position-y: 60px; }
+          100% { background-position-y: 64px; }
         }
         .road-stripe-animated {
-          background-image: linear-gradient(to bottom, #fde047 55%, transparent 55%);
-          background-size: 100% 60px;
+          background-image: linear-gradient(to bottom, #facc15 60%, transparent 60%);
+          background-size: 100% 64px;
           background-repeat: repeat-y;
           animation: roadStripeMove 1.2s linear infinite;
+        }
+        @keyframes kerbMove {
+          0% { background-position-y: 0px; }
+          100% { background-position-y: 40px; }
+        }
+        .kerb-animated {
+          background-image: repeating-linear-gradient(
+            to bottom,
+            #ef4444 0px,
+            #ef4444 10px,
+            #ffffff 10px,
+            #ffffff 20px
+          );
+          background-size: 100% 40px;
+          animation: kerbMove 1.2s linear infinite;
+        }
+        @keyframes grassMove {
+          0% { background-position-y: 0px; }
+          100% { background-position-y: 60px; }
+        }
+        .grass-animated {
+          background-image: repeating-linear-gradient(
+            to bottom,
+            #10b981 0px,
+            #10b981 30px,
+            #059669 30px,
+            #059669 60px
+          );
+          background-size: 100% 60px;
+          animation: grassMove 1.2s linear infinite;
+        }
+        .checkered-start-line {
+          background: repeating-conic-gradient(#1e293b 0% 25%, #ffffff 0% 50%) 50% / 14px 14px;
+        }
+        .headlight-cone {
+          clip-path: polygon(28% 100%, 72% 100%, 100% 0, 0 0);
+          background: linear-gradient(to top, rgba(254, 240, 138, 0.45) 0%, rgba(254, 240, 138, 0.15) 60%, transparent 100%);
         }
         @keyframes trackRumble {
           0%, 100% { transform: translate(0, 0); }
@@ -546,98 +583,124 @@ const RacerScreen = {
       </style>
 
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative select-none">
-        <!-- THANH TRÊN CÙNG: Điều hướng, Nút Đổi xe, Nút Tốc độ 3 mức, Nút Loa, Mạng sống -->
-        <div class="flex items-center justify-between w-full px-2 z-20 gap-1.5 md:gap-2">
-          <!-- Cụm nút trái: Chủ đề, Đổi xe & Chọn 3 mức tốc độ -->
-          <div class="flex items-center gap-1 md:gap-1.5">
-            <button onclick="RacerScreen.exitGame()" class="px-3 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
-              <span>⬅️</span>
-              <span class="hidden sm:inline">Chủ đề</span>
-            </button>
-            <button onclick="RacerScreen.openGarage(false)" class="px-3 py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
-              <span>🚗</span>
-              <span class="hidden sm:inline">Đổi xe</span>
-            </button>
+        <!-- THANH TRÊN CÙNG: 2 TẦNG THOÁNG ĐÃNG (HẾT CẮT CỤT CHỮ) -->
+        <div class="flex flex-col w-full px-2 z-20 gap-1.5">
+          <!-- TẦNG 1: Điều hướng, Nút Đổi xe, Nút Tốc độ 3 mức & Mạng sống -->
+          <div class="flex items-center justify-between w-full">
+            <!-- Cụm nút trái: Chủ đề, Đổi xe & Chọn 3 mức tốc độ -->
+            <div class="flex items-center gap-1.5 md:gap-2">
+              <button onclick="RacerScreen.exitGame()" class="px-3 py-1.5 md:py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
+                <span>⬅️</span>
+                <span class="hidden sm:inline">Chủ đề</span>
+              </button>
+              <button onclick="RacerScreen.openGarage(false)" class="px-3 py-1.5 md:py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
+                <span>🚗</span>
+                <span class="hidden sm:inline">Đổi xe</span>
+              </button>
 
-            <!-- NÚT CHỌN 3 MỨC TỐC ĐỘ: 🐌 Siêu chậm (~14s) / 🐢 Chậm rãi (~10s) / 🚗 Vừa phải (~7s) -->
-            <div class="flex items-center gap-0.5 md:gap-1 bg-white/90 p-1 rounded-2xl shadow-sm border border-slate-200 text-[11px] md:text-xs font-black">
-              <button id="btn-speed-super-slow" onclick="RacerScreen.setSpeed(14)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 14 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
-                🐌 Siêu chậm
-              </button>
-              <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(10)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 10 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
-                🐢 Chậm rãi
-              </button>
-              <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(7)" class="px-2 md:px-2.5 py-1.5 rounded-xl transition-all ${this.speedDuration === 7 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
-                🚗 Vừa phải
-              </button>
+              <!-- NÚT CHỌN 3 MỨC TỐC ĐỘ: 🐌 Siêu chậm (~14s) / 🐢 Chậm rãi (~10s) / 🚗 Vừa phải (~7s) -->
+              <div class="flex items-center gap-0.5 md:gap-1 bg-white/95 p-1 rounded-2xl shadow-sm border border-slate-200 text-[11px] md:text-xs font-black">
+                <button id="btn-speed-super-slow" onclick="RacerScreen.setSpeed(14)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 14 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                  🐌 Siêu chậm
+                </button>
+                <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(10)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 10 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                  🐢 Chậm rãi
+                </button>
+                <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(7)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 7 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                  🚗 Vừa phải
+                </button>
+              </div>
+            </div>
+
+            <!-- Cụm phải: Mạng sống ❤️❤️❤️ -->
+            <div id="racer-hearts" class="flex items-center text-base md:text-xl tracking-widest bg-white/95 px-3 py-1.5 rounded-2xl shadow-sm border border-rose-100 shrink-0">
+              ❤️❤️❤️
             </div>
           </div>
 
-          <!-- NÚT LOA & BIỂU NGỮ CÂU HỎI TO RÕ -->
-          <button onclick="RacerScreen.playQuestionPrompt()" class="px-3 md:px-5 py-2 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-xs md:text-base shadow-md flex items-center gap-1.5 md:gap-2 transition-all border-2 border-white truncate max-w-[38%]">
-            <span class="text-base md:text-xl animate-pulse">🔊</span>
-            <span id="racer-keyword-display" class="truncate">Đậu ơi, tìm từ vựng...</span>
-          </button>
-
-          <!-- CỤM PHẢI: Mạng sống ❤️❤️❤️ -->
-          <div id="racer-hearts" class="flex items-center text-base md:text-xl tracking-widest bg-white/90 px-2.5 py-1.5 rounded-2xl shadow-sm border border-rose-100 shrink-0">
-            ❤️❤️❤️
+          <!-- TẦNG 2: BIỂU NGỮ CÂU HỎI RỘNG TOÀN DIỆN KIÊM NÚT LOA (KHÔNG BAO GIỜ BỊ CẮT CỤT CHỮ) -->
+          <div class="w-full flex justify-center">
+            <button onclick="RacerScreen.playQuestionPrompt()" class="w-full max-w-2xl py-2 px-4 md:px-6 rounded-2xl md:rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 hover:from-amber-400 hover:to-yellow-500 active:scale-[0.98] text-slate-900 font-black text-sm sm:text-base md:text-lg shadow-md border-2 border-white flex items-center justify-center gap-2 md:gap-3 transition-all cursor-pointer">
+              <span class="text-lg md:text-2xl animate-pulse shrink-0">🔊</span>
+              <span id="racer-keyword-display" class="tracking-wide text-center">Đậu ơi, tìm từ vựng...</span>
+            </button>
           </div>
         </div>
 
-        <!-- ĐƯỜNG ĐUA 3 LÀN XE (KHUNG CHÍNH) -->
-        <div id="racer-track" class="flex-1 w-full my-2 relative rounded-[2.5rem] bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 border-4 border-slate-600 shadow-2xl overflow-hidden flex touch-none">
+        <!-- ĐƯỜNG ĐUA F1 3 LÀN XE: CÓ LỀ CỎ, GỜ KERB ĐỎ-TRẮNG & MẶT ĐƯỜNG THỂ THAO -->
+        <div id="racer-track" class="flex-1 w-full my-1.5 relative rounded-[2.5rem] bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 border-4 border-slate-700 shadow-2xl overflow-hidden flex touch-none">
           
-          <!-- VẠCH PHÂN LÀN CHUYỂN ĐỘNG LIÊN TỤC -->
-          <div class="absolute left-1/3 top-0 bottom-0 w-1.5 -ml-[3px] road-stripe-animated pointer-events-none z-0"></div>
-          <div class="absolute left-2/3 top-0 bottom-0 w-1.5 -ml-[3px] road-stripe-animated pointer-events-none z-0"></div>
+          <!-- DẢI LỀ CỎ & GỜ BÓ VỈA KERB F1 BÊN TRÁI -->
+          <div class="absolute left-0 top-0 bottom-0 w-3 sm:w-4 md:w-5 grass-animated z-10 border-r border-emerald-700 pointer-events-none shadow-inner"></div>
+          <div class="absolute left-3 sm:left-4 md:left-5 top-0 bottom-0 w-2.5 sm:w-3.5 kerb-animated z-10 border-r border-slate-700 pointer-events-none shadow-md"></div>
+
+          <!-- DẢI LỀ CỎ & GỜ BÓ VỈA KERB F1 BÊN PHẢI -->
+          <div class="absolute right-0 top-0 bottom-0 w-3 sm:w-4 md:w-5 grass-animated z-10 border-l border-emerald-700 pointer-events-none shadow-inner"></div>
+          <div class="absolute right-3 sm:right-4 md:right-5 top-0 bottom-0 w-2.5 sm:w-3.5 kerb-animated z-10 border-l border-slate-700 pointer-events-none shadow-md"></div>
+
+          <!-- VẠCH CARO XUẤT PHÁT F1 ĐỈNH ĐƯỜNG ĐUA -->
+          <div class="absolute top-0 inset-x-0 h-3.5 checkered-start-line opacity-90 z-10 border-b-2 border-amber-400 pointer-events-none"></div>
+
+          <!-- HIGHLIGHT LÀN XE ĐANG CHẠY (Hỗ trợ bé căn làn đón đúng từ) -->
+          <div id="lane-active-highlight" class="absolute top-0 bottom-0 w-1/3 transition-all duration-200 pointer-events-none z-0 bg-gradient-to-t from-sky-400/15 via-amber-300/5 to-transparent" style="left: 33.333%;"></div>
+
+          <!-- VẠCH PHÂN LÀN CHUYỂN ĐỘNG LIÊN TỤC (Đậm nét w-2) -->
+          <div class="absolute left-1/3 top-0 bottom-0 w-2 -ml-1 road-stripe-animated pointer-events-none z-0"></div>
+          <div class="absolute left-2/3 top-0 bottom-0 w-2 -ml-1 road-stripe-animated pointer-events-none z-0"></div>
 
           <!-- LÀN 0 (Trái) -->
           <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-0" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-0" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 1 (Giữa) -->
           <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-1" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-1" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 2 (Phải) -->
           <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
-            <div id="lane-item-2" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-3xl shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
+            <div id="lane-item-2" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
-          <!-- XE CỦA BÉ ĐẬU Ở ĐÁY ĐƯỜNG ĐUA (Cỡ lớn 78% làn đường, nằm gọn gàng) -->
-          <div id="player-car" class="absolute bottom-5 w-1/3 flex justify-center items-center transition-all duration-200 pointer-events-none z-20" style="left: 33.333%;">
-            <div id="car-inner" class="w-[78%] max-w-[130px] aspect-[100/150] flex items-center justify-center transition-transform">
+          <!-- XE CỦA BÉ ĐẬU Ở ĐÁY ĐƯỜNG ĐUA (Cỡ lớn 78% kèm chùm sáng đèn pha rọi trước) -->
+          <div id="player-car" class="absolute bottom-4 w-1/3 flex flex-col justify-center items-center transition-all duration-200 pointer-events-none z-20" style="left: 33.333%;">
+            <!-- Chùm sáng đèn pha rọi phía trước mũi xe -->
+            <div class="w-[85%] max-w-[140px] h-32 -mb-6 headlight-cone pointer-events-none filter blur-[1px]"></div>
+            <!-- Xe SVG cỡ lớn w-[78%] -->
+            <div id="car-inner" class="w-[78%] max-w-[130px] aspect-[100/150] flex items-center justify-center transition-transform duration-200">
               ${this.getCarSVG(this.selectedCar)}
             </div>
+            <!-- Vùng nhả khói xả đuôi xe khi bẻ lái -->
+            <div id="car-smoke-emitter" class="absolute -bottom-2 w-full flex justify-center pointer-events-none"></div>
           </div>
 
           <!-- KHUNG HỆ THỐNG HẠT VỠ TUNG KHI XE ĐÂM ĐÚNG ĐÍCH -->
           <div id="shatter-container" class="absolute inset-0 pointer-events-none z-40 overflow-hidden"></div>
 
           <!-- LỚP PHỦ THÔNG BÁO LƯỢT ĐUA / HƯỚNG DẪN -->
-          <div id="racer-prompt-banner" class="absolute top-4 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-white font-extrabold text-base shadow-lg text-center pointer-events-none z-30">
+          <div id="racer-prompt-banner" class="absolute top-5 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/85 backdrop-blur-md border border-white/25 text-white font-extrabold text-sm md:text-base shadow-xl text-center pointer-events-none z-30">
             Lắng nghe câu hỏi rồi lái xe nhé! 👂🚗
           </div>
         </div>
 
-        <!-- BỘ ĐIỀU KHIỂN NÚT BẤM DƯỚI ĐÁY -->
-        <div class="flex items-center justify-between px-4 pb-1">
-          <button onclick="RacerScreen.moveLeft()" class="px-6 md:px-8 py-3 rounded-2xl bg-white/90 hover:bg-white active:scale-95 text-slate-800 font-black text-lg md:text-xl shadow-md border-2 border-slate-200 transition-all flex items-center gap-2">
-            <span>⬅️</span>
-            <span>Sang trái</span>
+        <!-- BỘ ĐIỀU KHIỂN NÚT BẤM DƯỚI ĐÁY CHUẨN GAME THIẾU NHI 3D -->
+        <div class="flex items-center justify-between px-3 md:px-6 pb-1">
+          <button onclick="RacerScreen.moveLeft()" class="px-6 sm:px-8 md:px-10 py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600 hover:from-sky-300 hover:to-blue-500 text-white font-black text-base md:text-xl shadow-[0_6px_0_#1e3a8a,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-sky-300 transition-all flex items-center gap-2 select-none cursor-pointer">
+            <span class="text-xl md:text-2xl">⬅️</span>
+            <span>SANG TRÁI</span>
           </button>
 
-          <span class="text-slate-400 font-bold text-xs md:text-sm hidden sm:inline">Chạm vào làn, bấm ⬅️ ➡️ hoặc vuốt tay sang trái/phải</span>
+          <span class="px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-500 font-bold text-xs md:text-sm hidden sm:inline shadow-sm">
+            Chạm vào làn, bấm ⬅️ ➡️ hoặc vuốt tay sang trái/phải
+          </span>
 
-          <button onclick="RacerScreen.moveRight()" class="px-6 md:px-8 py-3 rounded-2xl bg-white/90 hover:bg-white active:scale-95 text-slate-800 font-black text-lg md:text-xl shadow-md border-2 border-slate-200 transition-all flex items-center gap-2">
-            <span>Sang phải</span>
-            <span>➡️</span>
+          <button onclick="RacerScreen.moveRight()" class="px-6 sm:px-8 md:px-10 py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 hover:from-amber-300 hover:to-orange-500 text-white font-black text-base md:text-xl shadow-[0_6px_0_#9a3412,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-amber-200 transition-all flex items-center gap-2 select-none cursor-pointer">
+            <span>SANG PHẢI</span>
+            <span class="text-xl md:text-2xl">➡️</span>
           </button>
         </div>
 
@@ -970,21 +1033,23 @@ const RacerScreen = {
         itemEl.classList.add("border-amber-300");
 
         const visualHtml = item.word.image_url ? `
-          <div class="w-full aspect-square rounded-2xl overflow-hidden relative flex items-center justify-center bg-white p-1.5 shadow-inner border border-slate-100">
+          <div class="w-full aspect-square rounded-2xl overflow-hidden relative flex items-center justify-center bg-gradient-to-b from-slate-50 to-amber-50/40 p-1.5 shadow-inner border border-amber-100/80">
             <img src="${item.word.image_url}" alt="${item.word.en}" class="w-full h-full object-contain rounded-xl" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
             <div style="display:none;" class="w-full h-full items-center justify-center text-5xl md:text-6xl filter drop-shadow-sm">
               ${item.word.visual}
             </div>
           </div>
         ` : `
-          <div class="w-full aspect-square flex items-center justify-center text-5xl md:text-6xl filter drop-shadow-sm bg-amber-50/50 rounded-2xl">
+          <div class="w-full aspect-square flex items-center justify-center text-5xl md:text-6xl filter drop-shadow-sm bg-amber-50/60 rounded-2xl border border-amber-100">
             ${item.word.visual}
           </div>
         `;
 
         itemEl.innerHTML = `
           ${visualHtml}
-          <span class="text-xs md:text-sm font-black text-slate-800 capitalize leading-tight py-1 truncate max-w-full tracking-wide">${item.word.en}</span>
+          <div class="w-full mt-1 px-1 py-0.5 rounded-xl bg-gradient-to-r from-amber-100 via-amber-200 to-amber-100 border border-amber-300/80 shadow-sm">
+            <span class="text-xs md:text-sm font-black text-slate-900 capitalize leading-tight py-0.5 block truncate tracking-wide">${item.word.en}</span>
+          </div>
         `;
       }
     }
@@ -1220,31 +1285,69 @@ const RacerScreen = {
     }
   },
 
-  // Chuyển làn xe
+  // Kích hoạt vệt khói xả nhỏ phía sau đuôi xe khi bẻ lái
+  triggerSteeringSmoke() {
+    const emitter = document.getElementById("car-smoke-emitter");
+    if (!emitter) return;
+    for (let i = 0; i < 3; i++) {
+      const puff = document.createElement("div");
+      puff.className = "absolute rounded-full bg-white/70 pointer-events-none filter blur-[0.5px]";
+      const size = 10 + Math.random() * 8;
+      puff.style.width = `${size}px`;
+      puff.style.height = `${size}px`;
+      puff.style.left = `calc(50% + ${(Math.random() - 0.5) * 36}px)`;
+      puff.style.bottom = "-2px";
+      puff.style.transition = "transform 0.35s ease-out, opacity 0.35s ease-out";
+      emitter.appendChild(puff);
+      requestAnimationFrame(() => {
+        puff.style.transform = `translate(${(Math.random() - 0.5) * 20}px, ${14 + Math.random() * 12}px) scale(1.6)`;
+        puff.style.opacity = "0";
+      });
+      setTimeout(() => puff.remove(), 400);
+    }
+  },
+
+  // Chuyển làn xe với cảm giác lái nghiêng thân xe
   switchLane(laneIndex) {
-    if (laneIndex < 0 || laneIndex > 2) return;
+    if (laneIndex < 0 || laneIndex > 2 || laneIndex === this.playerLane) return;
+    const dir = laneIndex > this.playerLane ? 1 : -1;
     this.playerLane = laneIndex;
-    this.updateCarPosition();
+    this.updateCarPosition(dir);
   },
 
   moveLeft() {
     if (this.playerLane > 0) {
       this.playerLane--;
-      this.updateCarPosition();
+      this.updateCarPosition(-1);
     }
   },
 
   moveRight() {
     if (this.playerLane < 2) {
       this.playerLane++;
-      this.updateCarPosition();
+      this.updateCarPosition(1);
     }
   },
 
-  updateCarPosition() {
+  updateCarPosition(direction = 0) {
     const car = document.getElementById("player-car");
+    const carInner = document.getElementById("car-inner");
+    const laneHighlight = document.getElementById("lane-active-highlight");
     if (car) {
       car.style.left = `${this.playerLane * 33.333}%`;
+    }
+    if (laneHighlight) {
+      laneHighlight.style.left = `${this.playerLane * 33.333}%`;
+    }
+    if (carInner && direction !== 0) {
+      const angle = direction > 0 ? 10 : -10;
+      carInner.style.transform = `rotate(${angle}deg) scale(1.03)`;
+      this.triggerSteeringSmoke();
+      setTimeout(() => {
+        if (carInner && !carInner.classList.contains("car-bounce")) {
+          carInner.style.transform = "rotate(0deg) scale(1)";
+        }
+      }, 260);
     }
   }
 };
