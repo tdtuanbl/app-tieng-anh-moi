@@ -15,11 +15,29 @@ const HomeScreen = {
     const container = document.getElementById("screen-home");
     if (!container) return;
 
-    if (!AppState.topics || AppState.topics.length === 0) {
+    // Trạng thái Lỗi kết nối / Không có dữ liệu
+    if (AppState.topicFetchError) {
       container.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full text-slate-400">
-          <div class="text-6xl animate-bounce mb-3">🌟</div>
-          <p class="text-xl font-bold">Đang tải các chủ đề cho bé Đậu...</p>
+        <div class="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto my-auto">
+          <div class="text-7xl mb-4 animate-bounce" aria-hidden="true">🥑📡</div>
+          <h2 class="text-2xl font-black text-slate-800 mb-2">Chưa tải được bài học rồi!</h2>
+          <p class="text-base font-bold text-slate-600 mb-6">Bé Đậu nhờ bố kiểm tra lại kết nối mạng để tiếp tục học cùng cô nhé!</p>
+          <button onclick="AppState.retryFetchTopics()" aria-label="Thử tải lại bài học" class="px-6 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg shadow-lg shadow-amber-300/50 border-2 border-white flex items-center gap-2.5 transition-all">
+            <span>🔄</span>
+            <span>Thử tải lại bài học</span>
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    // Trạng thái đang tải dữ liệu
+    if (!AppState.topics || AppState.topics.length === 0 || AppState.topicFetchLoading) {
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-slate-500 p-6 text-center my-auto">
+          <div class="text-6xl animate-bounce mb-3" aria-hidden="true">🌟</div>
+          <p class="text-xl font-black text-slate-700">Cô đang chuẩn bị bài học cho bé Đậu...</p>
+          <p class="text-sm font-semibold text-slate-400 mt-1">Chờ cô một chút xíu nhé! 🥑</p>
         </div>
       `;
       return;
@@ -33,9 +51,13 @@ const HomeScreen = {
 
       return `
         <div onclick="HomeScreen.openTopicModal('${topic.id}')"
-             class="group relative bg-white rounded-[1.75rem] p-3 md:p-3.5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center w-[calc(50%-0.6rem)] md:w-[calc(25%-1rem)] max-w-[245px] shrink-0">
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();HomeScreen.openTopicModal('${topic.id}');}"
+             role="button"
+             tabindex="0"
+             aria-label="Chủ đề ${topic.title}. Đã học ${count} trên ${total} từ."
+             class="group relative bg-white rounded-[1.75rem] p-3 md:p-3.5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 focus-visible:ring-4 focus-visible:ring-amber-400 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center w-[calc(50%-0.5rem)] sm:w-[calc(50%-0.6rem)] md:w-[calc(25%-1rem)] max-w-[245px] shrink-0">
           <!-- Icon lớn sắc nét -->
-          <div class="w-16 h-16 md:w-18 md:h-18 rounded-2xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-3xl md:text-4xl shadow-sm mb-1.5 group-hover:scale-110 transition-transform">
+          <div class="w-16 h-16 md:w-18 md:h-18 rounded-2xl ${topic.color || 'bg-amber-100'} flex items-center justify-center text-3xl md:text-4xl shadow-sm mb-1.5 group-hover:scale-110 transition-transform" aria-hidden="true">
             ${topic.icon || '📚'}
           </div>
           
@@ -53,49 +75,49 @@ const HomeScreen = {
 
     container.innerHTML = `
       <div class="w-full h-full flex flex-col justify-between max-w-6xl mx-auto py-2">
-        <div class="text-center mb-1">
-          <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Hôm nay bé Đậu muốn khám phá gì nào? 🚀</h2>
+        <div class="text-center mb-2">
+          <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Hôm nay bé Đậu cùng cô khám phá chủ đề nào nhé? 🚀</h2>
         </div>
 
-        <!-- Lưới 8 thẻ chủ đề cân đối (2 hàng x 4 thẻ căn giữa) trên iPad ngang -->
-        <div class="flex flex-wrap justify-center gap-3.5 md:gap-4 flex-1 items-center content-center py-1 w-full">
+        <!-- Lưới thẻ chủ đề cân đối trên cả điện thoại và iPad -->
+        <div class="flex flex-wrap justify-center gap-3 sm:gap-3.5 md:gap-4 flex-1 items-center content-center py-2 w-full">
           ${cardsHtml}
         </div>
 
-        <div class="text-center text-slate-400 text-sm font-semibold">
-          Chạm vào chủ đề để bắt đầu vui học cùng bố nhé! ❤️
+        <div class="text-center text-slate-500 text-xs sm:text-sm font-bold mt-2">
+          Chạm vào chủ đề để bắt đầu vui học cùng cô nhé! ❤️
         </div>
       </div>
 
-      <!-- Bảng chọn 3 hoạt động lớn -->
-      <div id="home-topic-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-white rounded-[2.5rem] p-8 max-w-xl w-full shadow-2xl border-4 border-amber-200 flex flex-col items-center">
+      <!-- Bảng chọn hoạt động cùng cô giáo -->
+      <div id="home-topic-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="modal-topic-header">
+        <div class="bg-white rounded-[2.5rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl border-4 border-amber-200 flex flex-col items-center">
           <!-- Header Modal -->
-          <div id="modal-topic-header" class="flex items-center gap-3 mb-4"></div>
+          <div id="modal-topic-header" class="flex items-center gap-3 mb-3"></div>
 
-          <p class="text-lg font-bold text-slate-600 mb-6 text-center">Bé Đậu chọn một trò chơi thật vui nhé!</p>
+          <p class="text-base sm:text-lg font-bold text-slate-600 mb-5 text-center">Bé Đậu chọn một hoạt động vui cùng cô nhé!</p>
 
-          <!-- 3 Nút bấm cực lớn dễ chạm cho trẻ 5 tuổi -->
-          <div class="w-full flex flex-col gap-4">
-            <button onclick="HomeScreen.startActivity('learn')" class="w-full py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-xl shadow-lg shadow-amber-200/50 flex items-center justify-center gap-4 transition-all">
-              <span class="text-3xl">📖</span>
-              <span>1. Học từ vựng & Tập nói</span>
+          <!-- 3 Nút bấm lớn dễ chạm cho trẻ 5 tuổi -->
+          <div class="w-full flex flex-col gap-3.5">
+            <button onclick="HomeScreen.startActivity('learn')" aria-label="Hoạt động Học từ vựng và Tập nói cùng cô" class="w-full py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg shadow-amber-200/50 flex items-center justify-center gap-3.5 transition-all cursor-pointer">
+              <span class="text-2xl sm:text-3xl" aria-hidden="true">📖</span>
+              <span>Học từ vựng & Tập nói</span>
             </button>
 
-            <button onclick="HomeScreen.startActivity('quiz')" class="w-full py-4 px-6 rounded-3xl bg-emerald-400 hover:bg-emerald-500 active:scale-95 text-white font-black text-xl shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-4 transition-all">
-              <span class="text-3xl">🎯</span>
-              <span>2. Trò chơi Tìm hình</span>
+            <button onclick="HomeScreen.startActivity('quiz')" aria-label="Hoạt động Trò chơi Tìm hình cùng cô" class="w-full py-4 px-6 rounded-3xl bg-emerald-400 hover:bg-emerald-500 active:scale-95 text-white font-black text-lg sm:text-xl shadow-lg shadow-emerald-200/50 flex items-center justify-center gap-3.5 transition-all cursor-pointer">
+              <span class="text-2xl sm:text-3xl" aria-hidden="true">🎯</span>
+              <span>Trò chơi Tìm hình</span>
             </button>
 
-            <button onclick="HomeScreen.startActivity('racer')" class="w-full py-4 px-6 rounded-3xl bg-sky-400 hover:bg-sky-500 active:scale-95 text-white font-black text-xl shadow-lg shadow-sky-200/50 flex items-center justify-center gap-4 transition-all">
-              <span class="text-3xl">🏎️</span>
-              <span>3. Đua xe 3 làn đường</span>
+            <button onclick="HomeScreen.startActivity('racer')" aria-label="Hoạt động Đua xe 3 làn đường cùng cô" class="w-full py-4 px-6 rounded-3xl bg-sky-400 hover:bg-sky-500 active:scale-95 text-white font-black text-lg sm:text-xl shadow-lg shadow-sky-200/50 flex items-center justify-center gap-3.5 transition-all cursor-pointer">
+              <span class="text-2xl sm:text-3xl" aria-hidden="true">🏎️</span>
+              <span>Đua xe 3 làn đường</span>
             </button>
           </div>
 
           <!-- Nút Quay lại -->
-          <button onclick="HomeScreen.closeTopicModal()" class="mt-6 px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-base active:scale-95 transition-all">
-            ⬅️ Quay lại chọn chủ đề khác
+          <button onclick="HomeScreen.closeTopicModal()" aria-label="Đóng bảng chọn, quay lại chọn chủ đề khác" class="mt-5 px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm sm:text-base active:scale-95 transition-all cursor-pointer">
+            ⬅️ Chọn chủ đề khác
           </button>
         </div>
       </div>

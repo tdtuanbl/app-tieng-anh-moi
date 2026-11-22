@@ -1,4 +1,4 @@
-// Trò chơi Tìm hình 4 ô (Grid 2x2) cho bé Đậu
+// Trò chơi Tìm hình 4 ô (Grid 2x2) cho bé Đậu cùng Cô giáo
 const QuizScreen = {
   currentWord: null,
   currentPrompt: "",
@@ -13,23 +13,23 @@ const QuizScreen = {
   lastCorrectIndex: -1,
   distractorCounts: {},
 
-  // 5 mẫu câu hỏi tiếng Việt sinh động
+  // 5 mẫu câu hỏi tiếng Việt thân thiện của cô giáo
   VI_QUESTIONS: [
-    "Đậu ơi, hình nào là",
-    "Tìm cho cô từ:",
+    "Bé Đậu chỉ cho cô hình nào là",
+    "Đậu ơi, tìm cho cô từ:",
     "Đố Đậu biết đâu là",
-    "Bé Đậu chỉ cho cô hình",
+    "Cô đố bé Đậu tìm được hình",
     "Đậu giỏi ơi, hình nào là"
   ],
 
-  // 6 câu khen ngợi hào hứng
+  // 6 câu khen ngợi ấm áp từ cô giáo
   VI_PRAISES: [
-    "Đậu xuất sắc quá!",
-    "Tuyệt vời, 10 điểm!",
+    "Cô khen Đậu xuất sắc quá!",
+    "Tuyệt vời, cô cho Đậu 10 điểm!",
     "Chính xác rồi, Đậu giỏi quá!",
-    "Hoan hô bé Đậu, đúng rồi!",
-    "Quá đỉnh luôn Đậu ơi!",
-    "Giỏi lắm, 10 điểm cho bé Đậu!"
+    "Hoan hô bé Đậu, đúng rồi nè!",
+    "Quá đỉnh luôn, cô tặng Đậu 1 sao!",
+    "Giỏi lắm, 10 điểm cho bé Đậu của cô!"
   ],
 
   getRandomQuestionPrompt() {
@@ -121,10 +121,24 @@ const QuizScreen = {
 
   // Bắt đầu màn hình Quiz
   start() {
-    if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length < 4) {
+    const pool = this.getWordPool();
+    if (!pool || pool.length < 4) {
       if (AppState.topics && AppState.topics.length > 0) {
         AppState.currentTopic = AppState.topics[0];
       } else {
+        const container = document.getElementById("screen-quiz");
+        if (container) {
+          container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto my-auto">
+              <div class="text-7xl mb-4 animate-bounce" aria-hidden="true">🎯📚</div>
+              <h2 class="text-2xl font-black text-slate-800 mb-2">Chưa đủ từ vựng rồi!</h2>
+              <p class="text-base font-bold text-slate-600 mb-6">Chủ đề này chưa có đủ từ vựng để chơi tìm hình. Bé Đậu cùng cô chọn chủ đề khác nhé!</p>
+              <button onclick="AppState.showScreen('screen-home')" aria-label="Quay về chọn chủ đề khác" class="px-6 py-3 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg shadow-md transition-all cursor-pointer">
+                <span>⬅️ Chọn chủ đề khác</span>
+              </button>
+            </div>
+          `;
+        }
         return;
       }
     }
@@ -170,21 +184,21 @@ const QuizScreen = {
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative">
         <!-- Thanh điều hướng & Câu hỏi & Bộ chọn chủ đề -->
         <div class="flex items-center justify-between w-full px-2 gap-2">
-          <button onclick="AppState.showScreen('screen-home')" class="px-3.5 md:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm shrink-0">
-            <span>⬅️</span>
+          <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3.5 md:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm shrink-0 cursor-pointer">
+            <span aria-hidden="true">⬅️</span>
             <span>Chủ đề</span>
           </button>
 
-          <!-- Nút Loa to & Câu hỏi nổi bật -->
-          <button onclick="QuizScreen.playQuestionPrompt()" class="px-4 md:px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-base md:text-xl shadow-md flex items-center gap-2 md:gap-3 transition-all truncate max-w-[50%]">
-            <span class="text-xl md:text-2xl animate-pulse">🔊</span>
+          <!-- Nút Loa to & Câu hỏi nổi bật kiêm Loading state -->
+          <button id="btn-quiz-speak" onclick="QuizScreen.playQuestionPrompt()" aria-label="Nghe cô đọc lại câu hỏi" class="px-4 md:px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-sm sm:text-base md:text-xl shadow-md flex items-center gap-2 md:gap-3 transition-all truncate max-w-[55%] cursor-pointer">
+            <span id="quiz-speak-icon" class="text-xl md:text-2xl" aria-hidden="true">🔊</span>
             <span id="quiz-question-text" class="truncate">Đậu ơi, hình nào là...?</span>
           </button>
 
           <!-- Bộ chọn chủ đề (kèm lựa chọn 🎲 Tất cả chủ đề) -->
-          <div class="flex items-center gap-1.5 bg-emerald-100/90 text-emerald-900 font-extrabold text-xs md:text-sm px-3 py-1.5 rounded-2xl border border-emerald-200 shadow-sm shrink-0">
-            <span>🎯</span>
-            <select id="quiz-topic-select" onchange="QuizScreen.handleTopicChange(this.value)" class="bg-transparent font-black text-xs md:text-sm text-emerald-950 outline-none cursor-pointer border-none pr-1">
+          <div class="flex items-center gap-1.5 bg-emerald-100/90 text-emerald-900 font-extrabold text-xs md:text-sm px-2.5 sm:px-3 py-1.5 rounded-2xl border border-emerald-200 shadow-sm shrink-0">
+            <span aria-hidden="true">🎯</span>
+            <select id="quiz-topic-select" aria-label="Chọn chủ đề cho câu đố" onchange="QuizScreen.handleTopicChange(this.value)" class="bg-transparent font-black text-xs md:text-sm text-emerald-950 outline-none cursor-pointer border-none pr-1">
               <option value="all" ${this.selectedTopicId === 'all' ? 'selected' : ''}>🎲 Tất cả chủ đề</option>
               ${(AppState.topics || []).map(t => `
                 <option value="${t.id}" ${this.selectedTopicId === t.id ? 'selected' : ''}>${t.title}</option>
@@ -193,15 +207,15 @@ const QuizScreen = {
           </div>
         </div>
 
-        <!-- LƯỚI 4 Ô CHỮ NHẬT TO (GRID 2x2) VỪA KHÍT MÀN HÌNH IPAD -->
-        <div id="quiz-grid" class="grid grid-cols-2 grid-rows-2 gap-4 md:gap-6 flex-1 w-full my-3">
+        <!-- LƯỚI 4 Ô CHỮ NHẬT TO (GRID 2x2) VỪA KHÍT MÀN HÌNH IPAD & ĐIỆN THOẠI -->
+        <div id="quiz-grid" class="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 md:gap-6 flex-1 w-full my-2 sm:my-3">
           <!-- 4 Ô đáp án được chèn động -->
         </div>
 
         <!-- Thông báo khích lệ & Trạng thái -->
         <div class="h-10 flex items-center justify-center">
-          <p id="quiz-feedback" class="text-base font-bold text-slate-500">
-            Chạm vào hình ảnh bé cho là đúng nhé! 👆
+          <p id="quiz-feedback" class="text-sm sm:text-base font-bold text-slate-500">
+            Chạm vào hình ảnh bé tìm được nhé! 👆
           </p>
         </div>
       </div>
@@ -309,9 +323,13 @@ const QuizScreen = {
 
         return `
           <div id="quiz-card-${idx}" onclick="QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}')"
-               class="group bg-white rounded-[2rem] border-4 border-slate-100 hover:border-amber-300 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-3 text-center overflow-hidden">
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}');}"
+               role="button"
+               tabindex="0"
+               aria-label="Hình ${opt.en}, nghĩa là ${opt.vi}"
+               class="group bg-white rounded-[2rem] border-4 border-slate-100 hover:border-amber-300 focus-visible:ring-4 focus-visible:ring-amber-400 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-2.5 sm:p-3 text-center overflow-hidden">
             ${visualContent}
-            <span class="text-xl md:text-2xl font-black text-slate-800 capitalize leading-tight">
+            <span class="text-lg sm:text-xl md:text-2xl font-black text-slate-800 capitalize leading-tight">
               ${opt.en}
             </span>
           </div>
@@ -384,12 +402,17 @@ const QuizScreen = {
     });
   },
 
-  // Phát câu hỏi
+  // Phát câu hỏi của cô giáo
   async playQuestionPrompt() {
     if (!this.currentWord) return;
 
-    if (AppState.voiceMode === "bilingual") {
-      try {
+    const speakIcon = document.getElementById("quiz-speak-icon");
+    const speakBtn = document.getElementById("btn-quiz-speak");
+    if (speakIcon) speakIcon.classList.add("audio-playing-pulse");
+    if (speakBtn) speakBtn.classList.add("pointer-events-none");
+
+    try {
+      if (AppState.voiceMode === "bilingual") {
         let urls = null;
         if (this.preloadPromise) {
           urls = await this.preloadPromise;
@@ -401,11 +424,14 @@ const QuizScreen = {
           await AppState.speakText(this.currentPrompt, "vi");
           await AppState.speakText(this.currentWord.en, "en");
         }
-      } catch (e) {
-        console.error("Lỗi phát câu hỏi song ngữ:", e);
+      } else {
+        await AppState.speakText(`Where is the ${this.currentWord.en}, Đậu?`, "en");
       }
-    } else {
-      await AppState.speakText(`Where is the ${this.currentWord.en}, Đậu?`, "en");
+    } catch (e) {
+      console.error("Lỗi phát câu hỏi song ngữ:", e);
+    } finally {
+      if (speakIcon) speakIcon.classList.remove("audio-playing-pulse");
+      if (speakBtn) speakBtn.classList.remove("pointer-events-none");
     }
   },
 
@@ -433,7 +459,7 @@ const QuizScreen = {
         feedbackEl.innerHTML = `<span class="text-emerald-600 font-black text-xl animate-bounce">🎉 ${praiseMsg} +1 ⭐</span>`;
       }
 
-      // Phát tiếng khen ngợi
+      // Phát tiếng khen ngợi của cô giáo
       await AppState.speakText(praiseMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
       
       // Chuyển sang câu hỏi kế tiếp
@@ -442,7 +468,7 @@ const QuizScreen = {
       }, 900);
 
     } else {
-      // CHỌN NHẦM: Rung lắc & nhắc nhở thân thiện
+      // CHỌN NHẦM: Rung lắc & nhắc nhở thân thiện từ cô
       if (cardEl) {
         cardEl.classList.add("shake-box", "border-rose-300");
         setTimeout(() => {
@@ -451,11 +477,11 @@ const QuizScreen = {
       }
 
       const wrongMsg = AppState.voiceMode === "bilingual"
-        ? "Chưa đúng rồi Đậu ơi, tìm lại nhé!"
+        ? "Chưa đúng rồi Đậu ơi, bé tìm lại giúp cô nhé!"
         : "Not quite, try again Đậu!";
 
       if (feedbackEl) {
-        feedbackEl.innerHTML = `<span class="text-amber-700 font-bold text-base">✨ ${wrongMsg}</span>`;
+        feedbackEl.innerHTML = `<span class="text-amber-800 font-bold text-sm sm:text-base">✨ ${wrongMsg}</span>`;
       }
 
       await AppState.speakText(wrongMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");

@@ -8,6 +8,32 @@ const AppState = {
   audioPlayer: new Audio(),
   currentAudioResolve: null,
 
+  // Trạng thái tải âm thanh & tải dữ liệu
+  isAudioLoading: false,
+  isAudioPlaying: false,
+  topicFetchLoading: false,
+  topicFetchError: false,
+  audioListeners: [],
+
+  // Đăng ký lắng nghe thay đổi trạng thái âm thanh
+  addAudioListener(fn) {
+    if (typeof fn === "function" && !this.audioListeners.includes(fn)) {
+      this.audioListeners.push(fn);
+    }
+  },
+
+  removeAudioListener(fn) {
+    this.audioListeners = this.audioListeners.filter(listener => listener !== fn);
+  },
+
+  notifyAudioState(isLoading, isPlaying) {
+    this.isAudioLoading = isLoading;
+    this.isAudioPlaying = isPlaying;
+    this.audioListeners.forEach(fn => {
+      try { fn(isLoading, isPlaying); } catch (e) { console.error(e); }
+    });
+  },
+
   // Khởi tạo ban đầu
   async init() {
     this.updateStarsDisplay();
@@ -53,11 +79,13 @@ const AppState = {
     const btn = document.getElementById("btn-voice-mode");
     if (!btn) return;
     if (this.voiceMode === "bilingual") {
-      btn.innerHTML = `<span class="text-lg">🇻🇳+🇬🇧</span> <span>Song ngữ</span>`;
-      btn.className = "px-3.5 py-1.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95";
+      btn.innerHTML = `<span class="text-base sm:text-lg" aria-hidden="true">🇻🇳+🇬🇧</span> <span class="hidden xs:inline">Song ngữ</span>`;
+      btn.className = "px-2.5 sm:px-3.5 py-1.5 rounded-2xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-1.5 active:scale-95";
+      btn.setAttribute("aria-label", "Chế độ hiện tại: Song ngữ Việt Anh. Chạm để đổi sang 100% tiếng Anh");
     } else {
-      btn.innerHTML = `<span class="text-lg">🇬🇧</span> <span>100% Tiếng Anh</span>`;
-      btn.className = "px-3.5 py-1.5 rounded-2xl bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-sm transition-all shadow-sm flex items-center gap-2 active:scale-95";
+      btn.innerHTML = `<span class="text-base sm:text-lg" aria-hidden="true">🇬🇧</span> <span class="hidden xs:inline">100% Tiếng Anh</span>`;
+      btn.className = "px-2.5 sm:px-3.5 py-1.5 rounded-2xl bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-1.5 active:scale-95";
+      btn.setAttribute("aria-label", "Chế độ hiện tại: 100% Tiếng Anh. Chạm để đổi sang Song ngữ");
     }
   },
 
@@ -92,20 +120,46 @@ const AppState = {
   updatePlaybackRateUI() {
     const label = document.getElementById("speed-label");
     if (label) {
-      label.textContent = `Tốc độ: ${this.playbackRate}x`;
+      label.textContent = `${this.playbackRate}x`;
+    }
+    const btn = document.getElementById("btn-speed");
+    if (btn) {
+      btn.setAttribute("aria-label", `Tốc độ đọc của cô giáo: ${this.playbackRate}x. Chạm để thay đổi`);
     }
   },
 
-  // Lấy danh mục từ vựng
+  // Lấy danh mục từ vựng với cơ chế bắt lỗi & Timeout 4s
   async fetchTopics() {
+    this.topicFetchLoading = true;
+    this.topicFetchError = false;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
     try {
-      const res = await fetch("/api/topics");
+      const res = await fetch("/api/topics", { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         this.topics = data.topics || [];
+        this.topicFetchError = (!this.topics || this.topics.length === 0);
+      } else {
+        this.topicFetchError = true;
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       console.error("Lỗi nạp topics:", err);
+      this.topicFetchError = true;
+    } finally {
+      this.topicFetchLoading = false;
+    }
+  },
+
+  // Thử tải lại danh mục chủ đề khi gặp lỗi
+  async retryFetchTopics() {
+    await this.fetchTopics();
+    if (window.HomeScreen && typeof window.HomeScreen.render === "function") {
+      window.HomeScreen.render();
     }
   },
 
@@ -120,52 +174,63 @@ const AppState = {
       this.audioPlayer.pause();
       this.audioPlayer.currentTime = 0;
     }
+    this.notifyAudioState(false, false);
   },
 
-  // Phát âm thanh TTS qua backend (Singleton Audio Player chống nghẽn)
+  // Phát âm thanh TTS qua backend (Singleton Audio Player chống nghẽn & có Loading State)
   async speakText(text, lang = "en") {
     if (!text) return;
     try {
       this.stopAudio();
+      this.notifyAudioState(true, false);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, lang })
+        body: JSON.stringify({ text, lang }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
-      if (!res.ok) return;
+      if (!res.ok) {
+        this.notifyAudioState(false, false);
+        return;
+      }
       const data = await res.json();
-      if (!data || !data.url) return;
+      if (!data || !data.url) {
+        this.notifyAudioState(false, false);
+        return;
+      }
 
       return new Promise((resolve) => {
         this.currentAudioResolve = resolve;
 
-        this.audioPlayer.onended = () => {
+        const onFinish = () => {
+          this.notifyAudioState(false, false);
           if (this.currentAudioResolve === resolve) {
             this.currentAudioResolve = null;
           }
           resolve();
         };
 
-        this.audioPlayer.onerror = () => {
-          if (this.currentAudioResolve === resolve) {
-            this.currentAudioResolve = null;
-          }
-          resolve();
-        };
+        this.audioPlayer.onended = onFinish;
+        this.audioPlayer.onerror = onFinish;
 
         this.audioPlayer.src = data.url;
         this.applyPlaybackRate();
-        this.audioPlayer.play().catch(() => {
-          if (this.currentAudioResolve === resolve) {
-            this.currentAudioResolve = null;
-          }
-          resolve();
+
+        this.audioPlayer.play().then(() => {
+          this.notifyAudioState(false, true);
+        }).catch(() => {
+          onFinish();
         });
       });
     } catch (err) {
       console.error("Lỗi phát TTS:", err);
+      this.notifyAudioState(false, false);
       if (this.currentAudioResolve) {
         const resolve = this.currentAudioResolve;
         this.currentAudioResolve = null;

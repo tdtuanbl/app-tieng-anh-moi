@@ -1,21 +1,22 @@
-// Màn hình Học từ vựng cho bé Đậu
+// Màn hình Học từ vựng cho bé Đậu cùng Cô giáo
 const LearnScreen = {
   currentIndex: 0,
   words: [],
   isSpeaking: false,
   playSequence: 0,
+  audioListenerAttached: false,
 
   VI_PRAISES: [
-    "Giỏi quá Đậu ơi!",
-    "Đậu xuất sắc quá!",
-    "Đậu tuyệt vời, 10 điểm!",
-    "Chính xác!"
+    "Cô khen Đậu giỏi quá nè!",
+    "Đậu của cô xuất sắc quá, 10 điểm!",
+    "Tuyệt vời, cô tặng Đậu một ngôi sao!",
+    "Chính xác rồi, Đậu phát âm siêu thế!"
   ],
 
   EN_PRAISES: [
     "Awesome job, Đậu!",
     "You are amazing, Đậu! Ten out of ten!",
-    "Excellent, Đậu!",
+    "Excellent pronunciation, Đậu!",
     "Spot on, Đậu!"
   ],
 
@@ -33,7 +34,34 @@ const LearnScreen = {
     this.isSpeaking = false;
     this.playSequence = 0;
     AppState.stopAudio();
+
+    if (!this.audioListenerAttached) {
+      AppState.addAudioListener((isLoading, isPlaying) => {
+        this.updateAudioUI(isLoading, isPlaying);
+      });
+      this.audioListenerAttached = true;
+    }
+
     this.render();
+  },
+
+  // Cập nhật trạng thái loading và đang phát âm thanh trên nút Hero
+  updateAudioUI(isLoading, isPlaying) {
+    const heroBtn = document.getElementById("btn-hero-speak");
+    const heroIcon = document.getElementById("hero-speak-icon");
+    const heroText = document.getElementById("hero-speak-text");
+
+    if (heroBtn && heroIcon && heroText) {
+      if (isLoading || isPlaying) {
+        heroBtn.classList.add("pointer-events-none", "opacity-85");
+        heroIcon.classList.add("audio-playing-pulse");
+        heroText.textContent = isLoading ? "Cô đang chuẩn bị đọc..." : "Cô đang đọc cho bé nghe...";
+      } else {
+        heroBtn.classList.remove("pointer-events-none", "opacity-85");
+        heroIcon.classList.remove("audio-playing-pulse");
+        heroText.textContent = "Chạm để nghe cô đọc";
+      }
+    }
   },
 
   // Hiển thị giao diện màn hình học
@@ -46,42 +74,42 @@ const LearnScreen = {
     const topic = AppState.currentTopic;
 
     container.innerHTML = `
-      <div class="w-full h-full flex flex-col justify-between max-w-4xl mx-auto py-2 relative">
+      <div class="w-full h-full flex flex-col justify-between max-w-4xl mx-auto py-1 sm:py-2 relative">
         <!-- Thanh điều hướng phụ -->
         <div class="flex items-center justify-between w-full px-2">
-          <button onclick="AppState.showScreen('screen-home')" class="px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
-            <span>⬅️</span>
+          <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3.5 sm:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+            <span aria-hidden="true">⬅️</span>
             <span>Chủ đề</span>
           </button>
 
-          <div class="px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-900 font-extrabold text-sm border border-amber-200 flex items-center gap-2">
-            <span>${topic.icon}</span>
+          <div class="px-3.5 sm:px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-900 font-extrabold text-xs sm:text-sm border border-amber-200 flex items-center gap-1.5 sm:gap-2">
+            <span aria-hidden="true">${topic.icon}</span>
             <span>${topic.title}</span>
             <span class="text-amber-600 font-semibold">• Từ ${this.currentIndex + 1}/${total}</span>
           </div>
 
-          <div class="w-20"></div>
+          <div class="w-16 sm:w-20"></div>
         </div>
 
         <!-- THẺ FLASHCARD TRUNG TÂM KHỔ LỚN -->
-        <div class="flex-1 flex flex-col items-center justify-center my-1">
-          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[2.5rem] p-4 sm:p-5 w-full max-w-md shadow-lg border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] active:scale-95 text-center">
+        <div class="flex-1 flex flex-col items-center justify-center my-1 sm:my-2 w-full">
+          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[2.5rem] p-4 sm:p-5 w-full max-w-md shadow-lg border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.01] active:scale-95 text-center">
             
-            <!-- Nút loa góc trên thẻ -->
-            <button class="absolute top-4 right-4 w-10 h-10 rounded-xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-xl shadow-sm transition-all">
+            <!-- Nút loa nhỏ góc trên thẻ -->
+            <button onclick="event.stopPropagation(); LearnScreen.playPrompt()" aria-label="Nghe cô phát âm từ ${word.en}" class="absolute top-4 right-4 w-10 h-10 rounded-xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-xl shadow-sm transition-all cursor-pointer">
               🔊
             </button>
 
             <!-- Khung hình ảnh thật cỡ lớn hoặc Emoji trực quan -->
             ${word.image_url ? `
-              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-white p-1 flex items-center justify-center relative">
+              <div class="w-40 h-40 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-white p-1 flex items-center justify-center relative">
                 <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md">
+                <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md" aria-hidden="true">
                   ${word.visual}
                 </div>
               </div>
             ` : `
-              <div class="w-44 h-44 sm:w-52 sm:h-52 my-1 flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md group-hover:scale-110 transition-transform">
+              <div class="w-40 h-40 sm:w-52 sm:h-52 my-1 flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md group-hover:scale-110 transition-transform" aria-hidden="true">
                 ${word.visual}
               </div>
             `}
@@ -97,39 +125,43 @@ const LearnScreen = {
             </p>
           </div>
 
-          <!-- NÚT XÁC NHẬN CHO BA MẸ: CHÍNH XÁC -->
-          <div class="h-14 flex items-center justify-center mt-2">
-            <button onclick="LearnScreen.confirmCorrect()" class="px-8 py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-lg sm:text-xl shadow-lg shadow-emerald-200/60 flex items-center gap-2.5 transition-all border-2 border-white">
-              <span>✅</span>
-              <span>Chính xác</span>
+          <!-- NÚT HÀNH ĐỘNG CHÍNH (HERO ACTION): BÉ CHẠM ĐỂ NGHE CÔ ĐỌC -->
+          <div class="w-full flex justify-center mt-3 sm:mt-4">
+            <button id="btn-hero-speak" onclick="LearnScreen.playPrompt()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full max-w-sm py-3.5 sm:py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-3 transition-all cursor-pointer">
+              <span id="hero-speak-icon" class="text-2xl sm:text-3xl" aria-hidden="true">🔊</span>
+              <span id="hero-speak-text">Chạm để nghe cô đọc</span>
             </button>
           </div>
         </div>
 
-        <!-- BỘ ĐIỀU KHIỂN TIẾN / LÙI TỪ -->
-        <div class="flex items-center justify-center gap-4 pb-1">
-          <button onclick="LearnScreen.prevWord()" class="px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
-            <span>⬅️</span>
-            <span>Từ trước</span>
+        <!-- KHU VỰC ĐIỀU KHIỂN DƯỚI ĐÁY: PHỤ HUYNH XÁC NHẬN & CHUYỂN TỪ -->
+        <div class="flex flex-col items-center gap-2.5 pb-1 w-full">
+          <!-- Nút phụ huynh xác nhận bé đã đọc chuẩn để thưởng sao -->
+          <button onclick="LearnScreen.confirmCorrect()" aria-label="Bố mẹ xác nhận bé đọc chuẩn để thưởng sao" class="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base shadow-md shadow-emerald-200/50 flex items-center gap-2 border-2 border-white transition-all cursor-pointer">
+            <span aria-hidden="true">✅</span>
+            <span>Đậu đọc chuẩn rồi (+1 ⭐)</span>
           </button>
 
-          <button onclick="LearnScreen.playPrompt()" class="px-7 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-lg shadow-md shadow-amber-200/50 active:scale-95 transition-all flex items-center gap-2">
-            <span>🔊</span>
-            <span>Nghe lại</span>
-          </button>
+          <!-- Bộ nút chuyển từ trước / từ sau -->
+          <div class="flex items-center justify-center gap-3 sm:gap-4">
+            <button onclick="LearnScreen.prevWord()" aria-label="Xem từ trước" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+              <span aria-hidden="true">⬅️</span>
+              <span>Từ trước</span>
+            </button>
 
-          <button onclick="LearnScreen.nextWord()" class="px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-2">
-            <span>Từ sau</span>
-            <span>➡️</span>
-          </button>
+            <button onclick="LearnScreen.nextWord()" aria-label="Sang từ tiếp theo" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+              <span>Từ sau</span>
+              <span aria-hidden="true">➡️</span>
+            </button>
+          </div>
         </div>
 
         <!-- Lớp phủ thông báo Khen thưởng & Hiệu ứng -->
-        <div id="praise-overlay" class="hidden absolute inset-0 z-40 bg-white/90 backdrop-blur-sm rounded-[3rem] flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-200">
-          <div id="praise-emoji" class="text-8xl mb-4 animate-bounce">🌟</div>
-          <h2 id="praise-title" class="text-4xl md:text-5xl font-black text-amber-500 mb-2"></h2>
-          <p id="praise-subtitle" class="text-2xl font-bold text-slate-600 mb-6">+1 ⭐ cho Đậu!</p>
-          <button onclick="LearnScreen.dismissPraise()" class="px-8 py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-white font-black text-xl shadow-lg active:scale-95 transition-all">
+        <div id="praise-overlay" class="hidden absolute inset-0 z-40 bg-white/90 backdrop-blur-sm rounded-[3rem] flex flex-col items-center justify-center p-6 sm:p-8 text-center animate-in fade-in zoom-in duration-200" role="dialog" aria-modal="true" aria-labelledby="praise-title">
+          <div id="praise-emoji" class="text-7xl sm:text-8xl mb-3 animate-bounce" aria-hidden="true">🌟</div>
+          <h2 id="praise-title" class="text-3xl sm:text-5xl font-black text-amber-500 mb-2"></h2>
+          <p id="praise-subtitle" class="text-xl sm:text-2xl font-bold text-slate-600 mb-6">Cô tặng Đậu +1 ⭐ nhé!</p>
+          <button onclick="LearnScreen.dismissPraise()" aria-label="Học từ vựng tiếp theo" class="px-7 sm:px-8 py-3 sm:py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-white font-black text-lg sm:text-xl shadow-lg active:scale-95 transition-all cursor-pointer">
             Học từ tiếp theo 🚀
           </button>
         </div>
@@ -151,8 +183,8 @@ const LearnScreen = {
       await AppState.speakText(word.en, "en");
       if (this.playSequence !== currentSeq) return;
 
-      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt ngắn gọn: "Bé Đậu đọc lại cho cô nhé"
-      await AppState.speakText("Bé Đậu đọc lại cho cô nhé", "vi");
+      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Bé Đậu đọc lại cho cô nghe nhé"
+      await AppState.speakText("Bé Đậu đọc lại cho cô nghe nhé", "vi");
     } finally {
       if (this.playSequence === currentSeq) {
         this.isSpeaking = false;
@@ -160,7 +192,7 @@ const LearnScreen = {
     }
   },
 
-  // Xử lý khi ba mẹ bấm nút Chính xác
+  // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn
   async confirmCorrect() {
     const word = this.words[this.currentIndex];
     if (!word) return;
@@ -173,7 +205,7 @@ const LearnScreen = {
     AppState.addStars(1);
     this.saveWordLearned(word.id);
 
-    // Chọn ngẫu nhiên câu khen
+    // Chọn ngẫu nhiên câu khen ngợi của cô
     const isBilingual = AppState.voiceMode === "bilingual";
     const praises = isBilingual ? this.VI_PRAISES : this.EN_PRAISES;
     const praise = praises[Math.floor(Math.random() * praises.length)];
@@ -222,7 +254,7 @@ const LearnScreen = {
       this.render();
     } else {
       // Đã học hết chủ đề
-      AppState.speakText("Chúc mừng Đậu đã hoàn thành tất cả từ vựng!", "vi");
+      AppState.speakText("Chúc mừng Bé Đậu đã hoàn thành tất cả từ vựng cùng cô!", "vi");
       AppState.showScreen("screen-home");
     }
   },

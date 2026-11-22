@@ -4,6 +4,7 @@ const RacerScreen = {
   currentWord: null,
   options: [], // 3 lựa chọn tương ứng 3 làn: [ { word, isTarget }, ... ]
   playerLane: 1, // 0: Làn trái, 1: Làn giữa, 2: Làn phải
+  sessionStars: 0,
   speedDuration: (() => {
     const saved = localStorage.getItem("dau_racer_speed");
     const val = saved ? parseFloat(saved) : 14;
@@ -26,35 +27,35 @@ const RacerScreen = {
   preloadPromise: null,
   currentTemplate: null,
 
-  // Các mẫu câu hỏi sinh động xoay vòng ngẫu nhiên (không lặp lại câu liền trước)
+  // Các mẫu câu hỏi sinh động của cô giáo xoay vòng ngẫu nhiên
   QUESTION_TEMPLATES: [
     {
-      display: (en) => `Đậu ơi, "${en}" ở đâu?`,
+      display: (en) => `Bé Đậu lái xe tìm cho cô từ "${en}" nào!`,
       parts: (en) => [
-        { text: "Đậu ơi,", lang: "vi" },
-        { text: en, lang: "en" },
-        { text: "ở đâu?", lang: "vi" }
-      ],
-      enOnly: (en) => `Where is the ${en}, Đậu?`
-    },
-    {
-      display: (en) => `Tìm cho cô từ "${en}" nào!`,
-      parts: (en) => [
-        { text: "Tìm cho cô từ:", lang: "vi" },
+        { text: "Bé Đậu lái xe tìm cho cô từ:", lang: "vi" },
         { text: en, lang: "en" }
       ],
       enOnly: (en) => `Find the ${en} for me, Đậu!`
     },
     {
-      display: (en) => `Đố Đậu lái xe trúng hình "${en}"!`,
+      display: (en) => `Đậu ơi, lái xe trúng hình "${en}" giúp cô nhé!`,
       parts: (en) => [
-        { text: "Đố Đậu lái xe trúng hình:", lang: "vi" },
+        { text: "Đậu ơi, lái xe trúng hình:", lang: "vi" },
+        { text: en, lang: "en" },
+        { text: "giúp cô nhé!", lang: "vi" }
+      ],
+      enOnly: (en) => `Steer to the ${en}, Đậu!`
+    },
+    {
+      display: (en) => `Cô đố bé Đậu lái xe trúng từ "${en}" đấy!`,
+      parts: (en) => [
+        { text: "Cô đố bé Đậu lái xe trúng từ:", lang: "vi" },
         { text: en, lang: "en" }
       ],
       enOnly: (en) => `Steer to the ${en}, Đậu!`
     },
     {
-      display: (en) => `Bé Đậu chỉ cho cô "${en}" ở làn nào nhé!`,
+      display: (en) => `Bé Đậu chỉ cho cô xem "${en}" ở làn nào nhé!`,
       parts: (en) => [
         { text: "Bé Đậu chỉ cho cô hình:", lang: "vi" },
         { text: en, lang: "en" }
@@ -63,12 +64,12 @@ const RacerScreen = {
     }
   ],
 
-  // Lời khen ngợi hào hứng khi đúng (xoay vòng không lặp lại)
+  // Lời khen ngợi hào hứng từ cô giáo
   PRAISES_VI: [
-    "Đậu xuất sắc quá!",
-    "Tuyệt vời, 10 điểm!",
-    "Chính xác luôn, Đậu lái xe giỏi quá!",
-    "Hoan hô bé Đậu, đúng rồi!"
+    "Cô khen Đậu lái xe giỏi quá!",
+    "Xuất sắc, cô tặng Đậu 2 sao luôn!",
+    "Chính xác rồi, Đậu lái xe siêu đỉnh!",
+    "Hoan hô bé Đậu của cô!"
   ],
 
   // Lấy mẫu câu hỏi ngẫu nhiên không trùng với câu trước
@@ -465,6 +466,7 @@ const RacerScreen = {
         return;
       }
     }
+    this.sessionStars = 0;
     this.lives = 3;
     this.playerLane = 1;
     this.renderContainer();
@@ -583,46 +585,48 @@ const RacerScreen = {
       </style>
 
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative select-none">
-        <!-- THANH TRÊN CÙNG: 2 TẦNG THOÁNG ĐÃNG (HẾT CẮT CỤT CHỮ) -->
-        <div class="flex flex-col w-full px-2 z-20 gap-1.5">
-          <!-- TẦNG 1: Điều hướng, Nút Đổi xe, Nút Tốc độ 3 mức & Mạng sống -->
-          <div class="flex items-center justify-between w-full">
+        <!-- THANH TRÊN CÙNG: 2 TẦNG THOÁNG ĐÃNG -->
+        <div class="flex flex-col w-full px-2 z-20 gap-1 sm:gap-1.5">
+          <!-- TẦNG 1: Điều hướng, Nút Đổi xe, Nút Tốc độ 3 mức & Sao chặng đua -->
+          <div class="flex items-center justify-between w-full flex-wrap gap-1">
             <!-- Cụm nút trái: Chủ đề, Đổi xe & Chọn 3 mức tốc độ -->
-            <div class="flex items-center gap-1.5 md:gap-2">
-              <button onclick="RacerScreen.exitGame()" class="px-3 py-1.5 md:py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
-                <span>⬅️</span>
-                <span class="hidden sm:inline">Chủ đề</span>
+            <div class="flex items-center gap-1 sm:gap-2 flex-wrap">
+              <button onclick="RacerScreen.exitGame()" aria-label="Thoát trò chơi về danh sách chủ đề" class="px-2.5 sm:px-3 py-1.5 md:py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm cursor-pointer">
+                <span aria-hidden="true">⬅️</span>
+                <span class="hidden xs:inline">Chủ đề</span>
               </button>
-              <button onclick="RacerScreen.openGarage(false)" class="px-3 py-1.5 md:py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm">
-                <span>🚗</span>
-                <span class="hidden sm:inline">Đổi xe</span>
+              <button onclick="RacerScreen.openGarage(false)" aria-label="Mở gara đổi xe khác" class="px-2.5 sm:px-3 py-1.5 md:py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black shadow-sm border border-amber-300 active:scale-95 transition-all flex items-center gap-1 text-xs md:text-sm cursor-pointer">
+                <span aria-hidden="true">🚗</span>
+                <span class="hidden xs:inline">Đổi xe</span>
               </button>
 
               <!-- NÚT CHỌN 3 MỨC TỐC ĐỘ: 🐌 Siêu chậm (~14s) / 🐢 Chậm rãi (~10s) / 🚗 Vừa phải (~7s) -->
-              <div class="flex items-center gap-0.5 md:gap-1 bg-white/95 p-1 rounded-2xl shadow-sm border border-slate-200 text-[11px] md:text-xs font-black">
-                <button id="btn-speed-super-slow" onclick="RacerScreen.setSpeed(14)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 14 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+              <div class="flex items-center gap-0.5 md:gap-1 bg-white/95 p-0.5 sm:p-1 rounded-2xl shadow-sm border border-slate-200 text-[10px] sm:text-[11px] md:text-xs font-black">
+                <button id="btn-speed-super-slow" onclick="RacerScreen.setSpeed(14)" aria-label="Tốc độ siêu chậm 14 giây" class="px-1.5 sm:px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 14 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
                   🐌 Siêu chậm
                 </button>
-                <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(10)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 10 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                <button id="btn-speed-slow" onclick="RacerScreen.setSpeed(10)" aria-label="Tốc độ chậm rãi 10 giây" class="px-1.5 sm:px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 10 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
                   🐢 Chậm rãi
                 </button>
-                <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(7)" class="px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 7 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
+                <button id="btn-speed-medium" onclick="RacerScreen.setSpeed(7)" aria-label="Tốc độ vừa phải 7 giây" class="px-1.5 sm:px-2 md:px-2.5 py-1 rounded-xl transition-all ${this.speedDuration === 7 ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}">
                   🚗 Vừa phải
                 </button>
               </div>
             </div>
 
-            <!-- Cụm phải: Mạng sống ❤️❤️❤️ -->
-            <div id="racer-hearts" class="flex items-center text-base md:text-xl tracking-widest bg-white/95 px-3 py-1.5 rounded-2xl shadow-sm border border-rose-100 shrink-0">
-              ❤️❤️❤️
+            <!-- Cụm phải: Huy hiệu Sao Chặng Đua Tích Lũy Thật -->
+            <div id="racer-stars-badge" class="flex items-center gap-1 text-xs sm:text-sm font-black bg-white/95 px-2.5 sm:px-3 py-1.5 rounded-2xl shadow-sm border border-amber-200 text-amber-900 shrink-0" aria-label="Sao tích lũy chặng đua hiện tại">
+              <span aria-hidden="true">⭐</span>
+              <span id="racer-session-stars">0</span>
+              <span class="text-[10px] sm:text-xs text-amber-700">sao chặng</span>
             </div>
           </div>
 
-          <!-- TẦNG 2: BIỂU NGỮ CÂU HỎI RỘNG TOÀN DIỆN KIÊM NÚT LOA (KHÔNG BAO GIỜ BỊ CẮT CỤT CHỮ) -->
+          <!-- TẦNG 2: BIỂU NGỮ CÂU HỎI RỘNG TOÀN DIỆN KIÊM NÚT LOA -->
           <div class="w-full flex justify-center">
-            <button onclick="RacerScreen.playQuestionPrompt()" class="w-full max-w-2xl py-2 px-4 md:px-6 rounded-2xl md:rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 hover:from-amber-400 hover:to-yellow-500 active:scale-[0.98] text-slate-900 font-black text-sm sm:text-base md:text-lg shadow-md border-2 border-white flex items-center justify-center gap-2 md:gap-3 transition-all cursor-pointer">
-              <span class="text-lg md:text-2xl animate-pulse shrink-0">🔊</span>
-              <span id="racer-keyword-display" class="tracking-wide text-center">Đậu ơi, tìm từ vựng...</span>
+            <button onclick="RacerScreen.playQuestionPrompt()" aria-label="Nghe cô đọc lại yêu cầu chặng đua" class="w-full max-w-2xl py-2 px-3 sm:px-6 rounded-2xl md:rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 hover:from-amber-400 hover:to-yellow-500 active:scale-[0.98] text-slate-900 font-black text-xs sm:text-base md:text-lg shadow-md border-2 border-white flex items-center justify-center gap-2 md:gap-3 transition-all cursor-pointer">
+              <span class="text-base sm:text-xl md:text-2xl animate-pulse shrink-0" aria-hidden="true">🔊</span>
+              <span id="racer-keyword-display" class="tracking-wide text-center">Bé Đậu lái xe tìm từ vựng cùng cô nào...</span>
             </button>
           </div>
         </div>
@@ -649,19 +653,19 @@ const RacerScreen = {
           <div class="absolute left-2/3 top-0 bottom-0 w-2 -ml-1 road-stripe-animated pointer-events-none z-0"></div>
 
           <!-- LÀN 0 (Trái) -->
-          <div onclick="RacerScreen.switchLane(0)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+          <div onclick="RacerScreen.switchLane(0)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();RacerScreen.switchLane(0);}" role="button" tabindex="0" aria-label="Lái xe vào làn bên trái" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10 focus:outline-none">
             <div id="lane-item-0" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 1 (Giữa) -->
-          <div onclick="RacerScreen.switchLane(1)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+          <div onclick="RacerScreen.switchLane(1)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();RacerScreen.switchLane(1);}" role="button" tabindex="0" aria-label="Lái xe vào làn ở giữa" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10 focus:outline-none">
             <div id="lane-item-1" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
 
           <!-- LÀN 2 (Phải) -->
-          <div onclick="RacerScreen.switchLane(2)" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10">
+          <div onclick="RacerScreen.switchLane(2)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();RacerScreen.switchLane(2);}" role="button" tabindex="0" aria-label="Lái xe vào làn bên phải" class="flex-1 h-full relative cursor-pointer active:bg-white/5 transition-colors flex justify-center z-10 focus:outline-none">
             <div id="lane-item-2" class="absolute top-[2%] left-0 right-0 mx-auto w-[90%] max-w-[210px] bg-white rounded-[1.75rem] shadow-[0_12px_24px_rgba(0,0,0,0.35),0_4px_8px_rgba(0,0,0,0.2)] border-4 border-amber-300 border-b-[6px] border-b-amber-400 flex flex-col items-center justify-between p-2 text-center pointer-events-none overflow-hidden transition-opacity">
             </div>
           </div>
@@ -688,19 +692,19 @@ const RacerScreen = {
         </div>
 
         <!-- BỘ ĐIỀU KHIỂN NÚT BẤM DƯỚI ĐÁY CHUẨN GAME THIẾU NHI 3D -->
-        <div class="flex items-center justify-between px-3 md:px-6 pb-1">
-          <button onclick="RacerScreen.moveLeft()" class="px-6 sm:px-8 md:px-10 py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600 hover:from-sky-300 hover:to-blue-500 text-white font-black text-base md:text-xl shadow-[0_6px_0_#1e3a8a,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-sky-300 transition-all flex items-center gap-2 select-none cursor-pointer">
-            <span class="text-xl md:text-2xl">⬅️</span>
-            <span>SANG TRÁI</span>
+        <div class="flex items-center justify-between px-2 sm:px-6 pb-1">
+          <button onclick="RacerScreen.moveLeft()" aria-label="Lái xe sang làn bên trái" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600 hover:from-sky-300 hover:to-blue-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#1e3a8a,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-sky-300 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
+            <span class="text-lg sm:text-xl md:text-2xl" aria-hidden="true">⬅️</span>
+            <span>Sang trái</span>
           </button>
 
-          <span class="px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-500 font-bold text-xs md:text-sm hidden sm:inline shadow-sm">
-            Chạm vào làn, bấm ⬅️ ➡️ hoặc vuốt tay sang trái/phải
+          <span class="px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 text-slate-500 font-bold text-xs md:text-sm hidden sm:inline shadow-sm">
+            Chạm vào làn hoặc bấm ⬅️ ➡️ để bẻ lái
           </span>
 
-          <button onclick="RacerScreen.moveRight()" class="px-6 sm:px-8 md:px-10 py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 hover:from-amber-300 hover:to-orange-500 text-white font-black text-base md:text-xl shadow-[0_6px_0_#9a3412,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-amber-200 transition-all flex items-center gap-2 select-none cursor-pointer">
-            <span>SANG PHẢI</span>
-            <span class="text-xl md:text-2xl">➡️</span>
+          <button onclick="RacerScreen.moveRight()" aria-label="Lái xe sang làn bên phải" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 hover:from-amber-300 hover:to-orange-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#9a3412,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-amber-200 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
+            <span>Sang phải</span>
+            <span class="text-lg sm:text-xl md:text-2xl" aria-hidden="true">➡️</span>
           </button>
         </div>
 
@@ -877,15 +881,16 @@ const RacerScreen = {
     }
   },
 
-  // Cập nhật mạng sống ❤️
-  updateHeartsUI() {
-    const el = document.getElementById("racer-hearts");
-    if (!el) return;
-    let heartsStr = "";
-    for (let i = 0; i < 3; i++) {
-      heartsStr += (i < this.lives) ? "❤️" : "🖤";
+  // Cập nhật huy hiệu Sao chặng đua
+  updateStarsUI() {
+    const el = document.getElementById("racer-session-stars");
+    if (el) {
+      el.textContent = this.sessionStars;
     }
-    el.textContent = heartsStr;
+  },
+
+  updateHeartsUI() {
+    this.updateStarsUI();
   },
 
   // Thoát game quay lại Home
@@ -1206,7 +1211,9 @@ const RacerScreen = {
 
     if (hitItem && hitItem.isTarget) {
       // 1. ĐÂM TRÚNG HÌNH ĐÚNG!
-      AppState.addStars(2); // Cộng +2 sao
+      AppState.addStars(2); // Cộng +2 sao vào tổng
+      this.sessionStars += 2;
+      this.updateStarsUI();
 
       // Âm thanh chiến thắng Ting-ting tức thì
       this.playVictoryChime();
@@ -1230,7 +1237,7 @@ const RacerScreen = {
 
       // (2 THẺ CÒN LẠI VẪN TIẾP TỤC TRÔI XUỐNG DƯỚI TỰ NHIÊN NHỜ VÒNG LẶP KHÔNG DỪNG)
 
-      // Lời khen ngợi hào hứng
+      // Lời khen ngợi hào hứng của cô giáo
       const praise = (AppState.voiceMode === "bilingual")
         ? this.getRandomPraise()
         : "Spot on, Đậu! You are amazing!";
@@ -1263,18 +1270,18 @@ const RacerScreen = {
 
       const banner = document.getElementById("racer-prompt-banner");
       if (banner) {
-        banner.innerHTML = `<span class="text-rose-300 font-black text-base">⚠️ Chưa đúng rồi Đậu ơi, mình thử lại nhé! 👉 "${this.currentWord.en}"</span>`;
+        banner.innerHTML = `<span class="text-rose-300 font-black text-sm sm:text-base">⚠️ Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé! 👉 "${this.currentWord.en}"</span>`;
       }
 
       // Cô giáo nhắc dịu dàng và tiếp tục trôi lượt tiếp theo để bé không bị mất nhịp đua xe
       if (AppState.voiceMode === "bilingual") {
         try {
-          const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
+          const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé!", "vi");
           const enUrl = await this.fetchAudioUrl(this.currentWord.en, "en");
           if (viUrl && enUrl) {
             await this.playSeamlessSequence([viUrl, enUrl]);
           } else {
-            AppState.speakText("Chưa đúng rồi Đậu ơi, mình thử lại nhé!", "vi");
+            AppState.speakText("Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé!", "vi");
           }
         } catch (e) {
           console.error("Lỗi âm thanh nhắc sai:", e);
