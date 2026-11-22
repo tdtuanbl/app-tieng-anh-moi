@@ -7,10 +7,10 @@ const LearnScreen = {
   audioListenerAttached: false,
 
   VI_PRAISES: [
-    "Cô khen Đậu giỏi quá nè!",
-    "Đậu của cô xuất sắc quá, 10 điểm!",
-    "Tuyệt vời, cô tặng Đậu một ngôi sao!",
-    "Chính xác rồi, Đậu phát âm siêu thế!"
+    "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
+    "Hoan hô, Đậu của cô giỏi quá!",
+    "Tuyệt vời, cô thưởng Đậu một ngôi sao nhé!",
+    "Chính xác rồi, Đậu đọc siêu quá nè!"
   ],
 
   EN_PRAISES: [
@@ -55,7 +55,7 @@ const LearnScreen = {
       if (isLoading || isPlaying) {
         heroBtn.classList.add("pointer-events-none", "opacity-85");
         heroIcon.classList.add("audio-playing-pulse");
-        heroText.textContent = isLoading ? "Cô đang chuẩn bị đọc..." : "Cô đang đọc cho bé nghe...";
+        heroText.textContent = isLoading ? "Cô đang chuẩn bị đọc..." : "Cô đang đọc cho Đậu nghe...";
       } else {
         heroBtn.classList.remove("pointer-events-none", "opacity-85");
         heroIcon.classList.remove("audio-playing-pulse");
@@ -183,8 +183,8 @@ const LearnScreen = {
       await AppState.speakText(word.en, "en");
       if (this.playSequence !== currentSeq) return;
 
-      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Bé Đậu đọc lại cho cô nghe nhé"
-      await AppState.speakText("Bé Đậu đọc lại cho cô nghe nhé", "vi");
+      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Đậu đọc lại theo cô nào!"
+      await AppState.speakText("Đậu đọc lại theo cô nào!", "vi");
     } finally {
       if (this.playSequence === currentSeq) {
         this.isSpeaking = false;
@@ -254,7 +254,7 @@ const LearnScreen = {
       this.render();
     } else {
       // Đã học hết chủ đề
-      AppState.speakText("Chúc mừng Bé Đậu đã hoàn thành tất cả từ vựng cùng cô!", "vi");
+      AppState.speakText("Hoan hô Đậu ơi! Con đã hoàn thành tất cả từ vựng cùng cô rồi!", "vi");
       AppState.showScreen("screen-home");
     }
   },

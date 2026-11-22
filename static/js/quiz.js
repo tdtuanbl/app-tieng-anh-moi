@@ -15,21 +15,21 @@ const QuizScreen = {
 
   // 5 mẫu câu hỏi tiếng Việt thân thiện của cô giáo
   VI_QUESTIONS: [
-    "Bé Đậu chỉ cho cô hình nào là",
-    "Đậu ơi, tìm cho cô từ:",
-    "Đố Đậu biết đâu là",
-    "Cô đố bé Đậu tìm được hình",
-    "Đậu giỏi ơi, hình nào là"
+    "Đậu ơi, chỉ cho cô xem đâu là",
+    "Đậu tìm giúp cô hình",
+    "Đố Đậu biết đâu là hình",
+    "Cô đố Đậu tìm được hình",
+    "Đậu yêu ơi, đâu là hình"
   ],
 
   // 6 câu khen ngợi ấm áp từ cô giáo
   VI_PRAISES: [
-    "Cô khen Đậu xuất sắc quá!",
-    "Tuyệt vời, cô cho Đậu 10 điểm!",
-    "Chính xác rồi, Đậu giỏi quá!",
-    "Hoan hô bé Đậu, đúng rồi nè!",
-    "Quá đỉnh luôn, cô tặng Đậu 1 sao!",
-    "Giỏi lắm, 10 điểm cho bé Đậu của cô!"
+    "Giỏi quá Đậu ơi, đúng rồi nè!",
+    "Tuyệt vời, cô thưởng Đậu một ngôi sao nhé!",
+    "Chính xác rồi, Đậu giỏi lắm!",
+    "Hoan hô, Đậu của cô giỏi quá!",
+    "Đậu siêu quá, cô thưởng một ngôi sao nhé!",
+    "Xuất sắc lắm Đậu ơi, mười điểm luôn!"
   ],
 
   getRandomQuestionPrompt() {
@@ -132,7 +132,7 @@ const QuizScreen = {
             <div class="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto my-auto">
               <div class="text-7xl mb-4 animate-bounce" aria-hidden="true">🎯📚</div>
               <h2 class="text-2xl font-black text-slate-800 mb-2">Chưa đủ từ vựng rồi!</h2>
-              <p class="text-base font-bold text-slate-600 mb-6">Chủ đề này chưa có đủ từ vựng để chơi tìm hình. Bé Đậu cùng cô chọn chủ đề khác nhé!</p>
+              <p class="text-base font-bold text-slate-600 mb-6">Chủ đề này chưa có đủ từ vựng để chơi tìm hình. Đậu cùng cô chọn chủ đề khác nhé!</p>
               <button onclick="AppState.showScreen('screen-home')" aria-label="Quay về chọn chủ đề khác" class="px-6 py-3 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg shadow-md transition-all cursor-pointer">
                 <span>⬅️ Chọn chủ đề khác</span>
               </button>
@@ -215,7 +215,7 @@ const QuizScreen = {
         <!-- Thông báo khích lệ & Trạng thái -->
         <div class="h-10 flex items-center justify-center">
           <p id="quiz-feedback" class="text-sm sm:text-base font-bold text-slate-500">
-            Chạm vào hình ảnh bé tìm được nhé! 👆
+            Đậu chạm vào hình con tìm được nhé! 👆
           </p>
         </div>
       </div>
@@ -477,7 +477,7 @@ const QuizScreen = {
       }
 
       const wrongMsg = AppState.voiceMode === "bilingual"
-        ? "Chưa đúng rồi Đậu ơi, bé tìm lại giúp cô nhé!"
+        ? "Chưa đúng rồi Đậu ơi, Đậu thử chọn lại cùng cô nhé!"
         : "Not quite, try again Đậu!";
 
       if (feedbackEl) {

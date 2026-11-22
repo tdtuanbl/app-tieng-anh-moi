@@ -13,6 +13,7 @@ const RacerScreen = {
   lives: 3,
   isRacing: false,
   isWaitingForQuestion: false,
+  isSpawningWave: false,
   animId: null,
   waveStartTime: null,
   collisionHandled: false,
@@ -26,38 +27,41 @@ const RacerScreen = {
   lastPraise: "",
   preloadPromise: null,
   currentTemplate: null,
+  ttsUrlCache: new Map(),
+  preloadedPraises: {},
+  webAudioCtx: null,
 
   // Các mẫu câu hỏi sinh động của cô giáo xoay vòng ngẫu nhiên
   QUESTION_TEMPLATES: [
     {
-      display: (en) => `Bé Đậu lái xe tìm cho cô từ "${en}" nào!`,
+      display: (en) => `Đậu lái xe tìm giúp cô từ "${en}" nào!`,
       parts: (en) => [
-        { text: "Bé Đậu lái xe tìm cho cô từ:", lang: "vi" },
+        { text: "Đậu lái xe tìm giúp cô từ:", lang: "vi" },
         { text: en, lang: "en" }
       ],
       enOnly: (en) => `Find the ${en} for me, Đậu!`
     },
     {
-      display: (en) => `Đậu ơi, lái xe trúng hình "${en}" giúp cô nhé!`,
+      display: (en) => `Đậu ơi, lái xe đón đúng hình "${en}" giúp cô nhé!`,
       parts: (en) => [
-        { text: "Đậu ơi, lái xe trúng hình:", lang: "vi" },
+        { text: "Đậu ơi, lái xe đón đúng hình:", lang: "vi" },
         { text: en, lang: "en" },
         { text: "giúp cô nhé!", lang: "vi" }
       ],
       enOnly: (en) => `Steer to the ${en}, Đậu!`
     },
     {
-      display: (en) => `Cô đố bé Đậu lái xe trúng từ "${en}" đấy!`,
+      display: (en) => `Cô đố Đậu lái xe đón trúng từ "${en}" đấy!`,
       parts: (en) => [
-        { text: "Cô đố bé Đậu lái xe trúng từ:", lang: "vi" },
+        { text: "Cô đố Đậu lái xe đón trúng từ:", lang: "vi" },
         { text: en, lang: "en" }
       ],
       enOnly: (en) => `Steer to the ${en}, Đậu!`
     },
     {
-      display: (en) => `Bé Đậu chỉ cho cô xem "${en}" ở làn nào nhé!`,
+      display: (en) => `Đậu chỉ cho cô xem hình "${en}" ở làn nào nhé!`,
       parts: (en) => [
-        { text: "Bé Đậu chỉ cho cô hình:", lang: "vi" },
+        { text: "Đậu chỉ cho cô xem hình:", lang: "vi" },
         { text: en, lang: "en" }
       ],
       enOnly: (en) => `Show me which lane has the ${en}, Đậu!`
@@ -66,10 +70,10 @@ const RacerScreen = {
 
   // Lời khen ngợi hào hứng từ cô giáo
   PRAISES_VI: [
-    "Cô khen Đậu lái xe giỏi quá!",
-    "Xuất sắc, cô tặng Đậu 2 sao luôn!",
-    "Chính xác rồi, Đậu lái xe siêu đỉnh!",
-    "Hoan hô bé Đậu của cô!"
+    "Giỏi quá Đậu ơi, con lái xe siêu quá!",
+    "Xuất sắc, cô thưởng Đậu hai ngôi sao luôn!",
+    "Chính xác rồi, Đậu lái xe đỉnh quá!",
+    "Hoan hô, Đậu của cô giỏi lắm!"
   ],
 
   // Lấy mẫu câu hỏi ngẫu nhiên không trùng với câu trước
@@ -91,35 +95,60 @@ const RacerScreen = {
     return selected;
   },
 
-  // Hiệu ứng âm thanh tổng hợp Web Audio API (không phụ thuộc file ngoài, không độ trễ)
+  // Khởi tạo AudioContext đơn vị (Singleton) sẵn sàng phát tức thì 0ms
+  getAudioContext() {
+    if (!this.webAudioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.webAudioCtx = new AudioCtx();
+      }
+    }
+    if (this.webAudioCtx && this.webAudioCtx.state === "suspended") {
+      this.webAudioCtx.resume().catch(() => {});
+    }
+    return this.webAudioCtx;
+  },
+
+  // Hiệu ứng âm thanh "Ting!" pha lê vui tai tức thì 0ms bằng Web Audio API nội bộ
   playVictoryChime() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // Hợp âm C5, E5, G5, C6 vui tươi
-      notes.forEach((freq, idx) => {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      // Hợp âm Ting! pha lê đôi: Note 1 (E6: 1318.5Hz) vút lên Note 2 (C7: 2093Hz) kèm âm hòa sắc 2637Hz
+      const chimes = [
+        { freq: 1318.51, time: now, duration: 0.35, gain: 0.25 },
+        { freq: 2093.00, time: now + 0.045, duration: 0.45, gain: 0.32 },
+        { freq: 2637.02, time: now + 0.075, duration: 0.35, gain: 0.16 }
+      ];
+
+      chimes.forEach(chime => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+
         osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
-        gain.gain.setValueAtTime(0.18, ctx.currentTime + idx * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.35);
+        osc.frequency.setValueAtTime(chime.freq, chime.time);
+
+        gain.gain.setValueAtTime(0.001, chime.time);
+        gain.gain.exponentialRampToValueAtTime(chime.gain, chime.time + 0.008); // Bật tiếng đanh tức thì 8ms
+        gain.gain.exponentialRampToValueAtTime(0.0001, chime.time + chime.duration);
+
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + idx * 0.08);
-        osc.stop(ctx.currentTime + idx * 0.08 + 0.4);
+
+        osc.start(chime.time);
+        osc.stop(chime.time + chime.duration + 0.05);
       });
     } catch (e) {
-      // Bỏ qua nếu trình duyệt chặn
+      console.warn("Lỗi phát victory chime:", e);
     }
   },
 
   playBoingSound() {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "triangle";
@@ -132,12 +161,73 @@ const RacerScreen = {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.3);
     } catch (e) {
-      // Bỏ qua nếu trình duyệt chặn
+      console.warn("Lỗi phát boing sound:", e);
     }
   },
 
-  // Lấy URL audio từ backend TTS
+  // Tải trước toàn bộ âm thanh câu khen từ lúc mới vào màn Đua xe
+  preloadAllPraises() {
+    this.preloadedPraises = this.preloadedPraises || {};
+    const viList = this.PRAISES_VI || [];
+    const enList = [
+      "Awesome driving, Đậu!",
+      "Spot on, Đậu! Two stars!",
+      "Excellent, great job, Đậu!",
+      "Hurray, you did it, Đậu!"
+    ];
+
+    viList.forEach(text => {
+      const key = `vi_${text}`;
+      if (!this.preloadedPraises[key]) {
+        this.fetchAudioUrl(text, "vi").then(url => {
+          if (url) {
+            this.preloadedPraises[key] = url;
+            const a = new Audio();
+            a.preload = "auto";
+            a.src = url;
+          }
+        });
+      }
+    });
+
+    enList.forEach(text => {
+      const key = `en_${text}`;
+      if (!this.preloadedPraises[key]) {
+        this.fetchAudioUrl(text, "en").then(url => {
+          if (url) {
+            this.preloadedPraises[key] = url;
+            const a = new Audio();
+            a.preload = "auto";
+            a.src = url;
+          }
+        });
+      }
+    });
+  },
+
+  // Phát câu khen đã tải sẵn từ bộ nhớ cache
+  playPreloadedAudio(url) {
+    if (!url) return;
+    try {
+      AppState.stopAudio();
+      const player = AppState.audioPlayer;
+      player.src = url;
+      if (AppState.playbackRate) {
+        player.playbackRate = AppState.playbackRate;
+        player.defaultPlaybackRate = AppState.playbackRate;
+      }
+      player.play().catch(() => {});
+    } catch (e) {
+      console.warn("Could not play preloaded audio:", e);
+    }
+  },
+
+  // Lấy URL audio từ backend TTS (kèm cache cục bộ)
   async fetchAudioUrl(text, lang) {
+    const cacheKey = `${lang}_${text}`;
+    if (this.ttsUrlCache && this.ttsUrlCache.has(cacheKey)) {
+      return this.ttsUrlCache.get(cacheKey);
+    }
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
@@ -146,7 +236,12 @@ const RacerScreen = {
       });
       if (!res.ok) return null;
       const data = await res.json();
-      return data ? data.url : null;
+      if (data && data.url) {
+        if (!this.ttsUrlCache) this.ttsUrlCache = new Map();
+        this.ttsUrlCache.set(cacheKey, data.url);
+        return data.url;
+      }
+      return null;
     } catch (err) {
       console.error("Lỗi tải trước âm thanh racer:", err);
       return null;
@@ -469,6 +564,9 @@ const RacerScreen = {
     this.sessionStars = 0;
     this.lives = 3;
     this.playerLane = 1;
+    this.isSpawningWave = false;
+    this.getAudioContext();
+    this.preloadAllPraises();
     this.renderContainer();
     this.setupSwipeListeners();
     // Mở Gara chọn xe trước khi xuất phát
@@ -561,6 +659,13 @@ const RacerScreen = {
         .car-bounce {
           animation: funBounce 0.5s ease-in-out;
         }
+        @keyframes carVictoryFlash {
+          0%, 100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); transform: scale(1); }
+          50% { filter: drop-shadow(0 0 18px #facc15) drop-shadow(0 0 32px #f59e0b) brightness(1.25); transform: scale(1.1); }
+        }
+        .car-victory-flash {
+          animation: carVictoryFlash 0.55s ease-out;
+        }
         @keyframes sirenFlashRed {
           0%, 100% { fill: #ef4444; filter: drop-shadow(0 0 6px #ef4444); }
           50% { fill: #7f1d1d; filter: none; }
@@ -626,7 +731,7 @@ const RacerScreen = {
           <div class="w-full flex justify-center">
             <button onclick="RacerScreen.playQuestionPrompt()" aria-label="Nghe cô đọc lại yêu cầu chặng đua" class="w-full max-w-2xl py-2 px-3 sm:px-6 rounded-2xl md:rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 hover:from-amber-400 hover:to-yellow-500 active:scale-[0.98] text-slate-900 font-black text-xs sm:text-base md:text-lg shadow-md border-2 border-white flex items-center justify-center gap-2 md:gap-3 transition-all cursor-pointer">
               <span class="text-base sm:text-xl md:text-2xl animate-pulse shrink-0" aria-hidden="true">🔊</span>
-              <span id="racer-keyword-display" class="tracking-wide text-center">Bé Đậu lái xe tìm từ vựng cùng cô nào...</span>
+              <span id="racer-keyword-display" class="tracking-wide text-center">Đậu lái xe tìm từ vựng cùng cô nào...</span>
             </button>
           </div>
         </div>
@@ -687,7 +792,7 @@ const RacerScreen = {
 
           <!-- LỚP PHỦ THÔNG BÁO LƯỢT ĐUA / HƯỚNG DẪN -->
           <div id="racer-prompt-banner" class="absolute top-5 inset-x-0 mx-auto w-fit px-6 py-2 rounded-full bg-slate-900/85 backdrop-blur-md border border-white/25 text-white font-extrabold text-sm md:text-base shadow-xl text-center pointer-events-none z-30">
-            Lắng nghe câu hỏi rồi lái xe nhé! 👂🚗
+            Đậu lắng nghe câu hỏi rồi lái xe nhé! 👂🚗
           </div>
         </div>
 
@@ -718,7 +823,7 @@ const RacerScreen = {
                 <span>GARA XE CỦA BÉ ĐẬU</span>
                 <span>🏁</span>
               </h2>
-              <p class="text-slate-500 font-bold text-xs md:text-sm mt-0.5">Bé Đậu chạm chọn chiếc xe yêu thích để xuất phát nhé!</p>
+              <p class="text-slate-500 font-bold text-xs md:text-sm mt-0.5">Đậu chạm chọn chiếc xe con thích để xuất phát nhé!</p>
             </div>
 
             <!-- Danh sách 4 loại xe (Grid 2x2) -->
@@ -777,6 +882,7 @@ const RacerScreen = {
   openGarage(isStartOfGame = false) {
     this.isRacing = false;
     this.isWaitingForQuestion = false;
+    this.isSpawningWave = false;
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -794,6 +900,7 @@ const RacerScreen = {
     if (modal) {
       modal.classList.add("hidden");
     }
+    this.getAudioContext();
     this.updateCarSVG();
     this.startContinuousLoop();
     this.startNextWave();
@@ -897,6 +1004,7 @@ const RacerScreen = {
   exitGame() {
     this.isRacing = false;
     this.isWaitingForQuestion = false;
+    this.isSpawningWave = false;
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -962,13 +1070,16 @@ const RacerScreen = {
 
     // KHI CÁC THẺ TRÔI QUA HẲN ĐÁY MÀN HÌNH (>= 115%): NỐI TIẾP CỤM TỪ MỚI MƯỢT MÀ
     if (topPercentage >= 115) {
-      this.startNextWave();
+      if (!this.isSpawningWave) {
+        this.startNextWave();
+      }
     }
   },
 
   // Thả đợt 3 từ vựng mới nối tiếp mượt mà
   async startNextWave(isRetry = false) {
-    if (!this.isRacing) return;
+    if (!this.isRacing || this.isSpawningWave) return;
+    this.isSpawningWave = true;
     const words = AppState.currentTopic.words;
     
     // Nếu là thử lại lượt vừa sai, giữ nguyên currentWord để bé làm chủ từ vựng
@@ -1061,7 +1172,7 @@ const RacerScreen = {
 
     const banner = document.getElementById("racer-prompt-banner");
     if (banner) {
-      banner.textContent = `Lắng nghe câu hỏi rồi lái xe nhé! 👂🚗`;
+      banner.textContent = `Đậu lắng nghe câu hỏi rồi lái xe nhé! 👂🚗`;
     }
 
     // TẠM DỪNG CỤM THẺ TẠI VẠCH XUẤT PHÁT TRONG KHI ĐỌC CÂU HỎI
@@ -1073,15 +1184,19 @@ const RacerScreen = {
     const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
     await Promise.race([promptPromise, timeoutPromise]);
 
-    if (!this.isRacing) return;
+    if (!this.isRacing) {
+      this.isSpawningWave = false;
+      return;
+    }
 
     // NGAY KHI ĐỌC DỨT CÂU HỎI: BẮT ĐẦU CHO CỤM THẺ TRÔI XUỐNG
     this.isWaitingForQuestion = false;
     this.waveStartTime = performance.now();
+    this.isSpawningWave = false;
 
     if (banner) {
       const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
-      banner.textContent = `Lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
+      banner.textContent = `Đậu lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
     }
   },
 
@@ -1215,8 +1330,19 @@ const RacerScreen = {
       this.sessionStars += 2;
       this.updateStarsUI();
 
-      // Âm thanh chiến thắng Ting-ting tức thì
+      // Âm thanh chiến thắng Ting-ting tức thì 0ms
       this.playVictoryChime();
+
+      // Hiệu ứng chớp sáng rực rỡ khung xe (Car Victory Flash)
+      const carInner = document.getElementById("car-inner");
+      if (carInner) {
+        carInner.classList.remove("car-victory-flash");
+        void carInner.offsetWidth;
+        carInner.classList.add("car-victory-flash");
+        setTimeout(() => {
+          if (carInner) carInner.classList.remove("car-victory-flash");
+        }, 600);
+      }
 
       // CHỈ RIÊNG THẺ BỊ ĐÂM: Đặt hit = true và dừng đứng lại ngay tại tọa độ va chạm
       this.cardsState[this.playerLane].hit = true;
@@ -1238,17 +1364,35 @@ const RacerScreen = {
       // (2 THẺ CÒN LẠI VẪN TIẾP TỤC TRÔI XUỐNG DƯỚI TỰ NHIÊN NHỜ VÒNG LẶP KHÔNG DỪNG)
 
       // Lời khen ngợi hào hứng của cô giáo
-      const praise = (AppState.voiceMode === "bilingual")
+      const isVi = (AppState.voiceMode === "bilingual");
+      const enPraises = [
+        "Awesome driving, Đậu!",
+        "Spot on, Đậu! Two stars!",
+        "Excellent, great job, Đậu!",
+        "Hurray, you did it, Đậu!"
+      ];
+      const praise = isVi
         ? this.getRandomPraise()
-        : "Spot on, Đậu! You are amazing!";
+        : enPraises[Math.floor(Math.random() * enPraises.length)];
+      const praiseLang = isVi ? "vi" : "en";
 
       const banner = document.getElementById("racer-prompt-banner");
       if (banner) {
         banner.innerHTML = `<span class="text-amber-300 font-black text-lg animate-bounce">🌟 ${praise} +2 ⭐</span>`;
       }
 
-      // Phát âm lời khen ngợi (không chặn vòng lặp trôi của 2 thẻ kia)
-      AppState.speakText(praise, (AppState.voiceMode === "bilingual") ? "vi" : "en");
+      // Phát câu khen đã tải sẵn từ bộ nhớ cache (pre-cache) với độ trễ cực ngắn 100ms để tiếng Ting! vang lên trước
+      const praiseKey = `${praiseLang}_${praise}`;
+      const preloadedUrl = this.preloadedPraises ? this.preloadedPraises[praiseKey] : null;
+
+      setTimeout(() => {
+        if (!this.isRacing) return;
+        if (preloadedUrl) {
+          this.playPreloadedAudio(preloadedUrl);
+        } else {
+          AppState.speakText(praise, praiseLang);
+        }
+      }, 100);
 
     } else {
       // 2. ĐÂM NHẦM HÌNH SAI!
@@ -1270,18 +1414,18 @@ const RacerScreen = {
 
       const banner = document.getElementById("racer-prompt-banner");
       if (banner) {
-        banner.innerHTML = `<span class="text-rose-300 font-black text-sm sm:text-base">⚠️ Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé! 👉 "${this.currentWord.en}"</span>`;
+        banner.innerHTML = `<span class="text-rose-300 font-black text-sm sm:text-base">⚠️ Chưa đúng rồi Đậu ơi, Đậu lái xe thử lại cùng cô nhé! 👉 "${this.currentWord.en}"</span>`;
       }
 
       // Cô giáo nhắc dịu dàng và tiếp tục trôi lượt tiếp theo để bé không bị mất nhịp đua xe
       if (AppState.voiceMode === "bilingual") {
         try {
-          const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé!", "vi");
+          const viUrl = await this.fetchAudioUrl("Chưa đúng rồi Đậu ơi, Đậu lái xe thử lại cùng cô nhé!", "vi");
           const enUrl = await this.fetchAudioUrl(this.currentWord.en, "en");
           if (viUrl && enUrl) {
             await this.playSeamlessSequence([viUrl, enUrl]);
           } else {
-            AppState.speakText("Chưa đúng rồi Đậu ơi, mình cùng cô thử lại nhé!", "vi");
+            AppState.speakText("Chưa đúng rồi Đậu ơi, Đậu lái xe thử lại cùng cô nhé!", "vi");
           }
         } catch (e) {
           console.error("Lỗi âm thanh nhắc sai:", e);
