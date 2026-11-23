@@ -1,6 +1,6 @@
 // Trò chơi Đua xe 3 làn đường học từ vựng cho bé Đậu
 const RacerScreen = {
-  selectedCar: localStorage.getItem("dau_selected_car") || "police",
+  selectedCar: localStorage.getItem("dau_selected_car") || "bicycle",
   currentWord: null,
   options: [], // 3 lựa chọn tương ứng 3 làn: [ { word, isTarget }, ... ]
   playerLane: 1, // 0: Làn trái, 1: Làn giữa, 2: Làn phải
@@ -29,6 +29,7 @@ const RacerScreen = {
   currentTemplate: null,
   ttsUrlCache: new Map(),
   preloadedPraises: {},
+  nextWaveData: null,
   webAudioCtx: null,
 
   // Các mẫu câu hỏi sinh động của cô giáo xoay vòng ngẫu nhiên
@@ -93,6 +94,58 @@ const RacerScreen = {
     const selected = list[Math.floor(Math.random() * list.length)];
     this.lastPraise = selected;
     return selected;
+  },
+
+  // Chuẩn bị trước bộ dữ liệu câu hỏi và từ vựng cho một lượt đua (Pipeline Pre-caching)
+  prepareWaveData(targetWord = null) {
+    if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length < 3) {
+      if (AppState.topics && AppState.topics.length > 0) {
+        AppState.currentTopic = AppState.topics[0];
+      } else {
+        return null;
+      }
+    }
+    const words = AppState.currentTopic.words;
+    const chosenWord = targetWord || words[Math.floor(Math.random() * words.length)];
+
+    const others = words.filter(w => w.id !== chosenWord.id);
+    for (let i = others.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [others[i], others[j]] = [others[j], others[i]];
+    }
+    const distractors = others.slice(0, 2);
+
+    const targetLaneIndex = Math.floor(Math.random() * 3);
+    const options = [null, null, null];
+    options[targetLaneIndex] = { word: chosenWord, isTarget: true };
+
+    let distractorIndex = 0;
+    for (let lane = 0; lane < 3; lane++) {
+      if (options[lane] === null) {
+        options[lane] = { word: distractors[distractorIndex++], isTarget: false };
+      }
+    }
+
+    const template = this.getRandomTemplate();
+
+    let preloadPromise = null;
+    if (AppState.voiceMode === "bilingual") {
+      const parts = template.parts(chosenWord.en);
+      preloadPromise = Promise.all(parts.map(p => this.fetchAudioUrl(p.text, p.lang)));
+    } else {
+      preloadPromise = Promise.all([
+        this.fetchAudioUrl(template.enOnly(chosenWord.en), "en")
+      ]);
+    }
+
+    return {
+      word: chosenWord,
+      distractors,
+      targetLaneIndex,
+      options,
+      template,
+      preloadPromise
+    };
   },
 
   // Khởi tạo AudioContext đơn vị (Singleton) sẵn sàng phát tức thì 0ms
@@ -165,8 +218,8 @@ const RacerScreen = {
     }
   },
 
-  // Tải trước toàn bộ âm thanh câu khen từ lúc mới vào màn Đua xe
-  preloadAllPraises() {
+  // Tải trước các câu khen ngợi một cách nhẹ nhàng xen kẽ sau khi xe đã xuất phát
+  preloadPraisesStaggered() {
     this.preloadedPraises = this.preloadedPraises || {};
     const viList = this.PRAISES_VI || [];
     const enList = [
@@ -175,34 +228,28 @@ const RacerScreen = {
       "Excellent, great job, Đậu!",
       "Hurray, you did it, Đậu!"
     ];
+    const allPraises = [
+      ...viList.map(text => ({ text, lang: "vi" })),
+      ...enList.map(text => ({ text, lang: "en" }))
+    ];
 
-    viList.forEach(text => {
-      const key = `vi_${text}`;
-      if (!this.preloadedPraises[key]) {
-        this.fetchAudioUrl(text, "vi").then(url => {
-          if (url) {
-            this.preloadedPraises[key] = url;
-            const a = new Audio();
-            a.preload = "auto";
-            a.src = url;
-          }
-        });
-      }
+    allPraises.forEach((item, index) => {
+      setTimeout(() => {
+        if (!this.isRacing) return;
+        const key = `${item.lang}_${item.text}`;
+        if (!this.preloadedPraises[key]) {
+          this.fetchAudioUrl(item.text, item.lang).then(url => {
+            if (url) {
+              this.preloadedPraises[key] = url;
+            }
+          });
+        }
+      }, 2500 + index * 1000);
     });
+  },
 
-    enList.forEach(text => {
-      const key = `en_${text}`;
-      if (!this.preloadedPraises[key]) {
-        this.fetchAudioUrl(text, "en").then(url => {
-          if (url) {
-            this.preloadedPraises[key] = url;
-            const a = new Audio();
-            a.preload = "auto";
-            a.src = url;
-          }
-        });
-      }
-    });
+  preloadAllPraises() {
+    this.preloadPraisesStaggered();
   },
 
   // Phát câu khen đã tải sẵn từ bộ nhớ cache
@@ -222,7 +269,7 @@ const RacerScreen = {
     }
   },
 
-  // Lấy URL audio từ backend TTS (kèm cache cục bộ)
+  // Lấy URL audio từ backend TTS (kèm cache cục bộ & pre-buffer trình duyệt)
   async fetchAudioUrl(text, lang) {
     const cacheKey = `${lang}_${text}`;
     if (this.ttsUrlCache && this.ttsUrlCache.has(cacheKey)) {
@@ -239,6 +286,10 @@ const RacerScreen = {
       if (data && data.url) {
         if (!this.ttsUrlCache) this.ttsUrlCache = new Map();
         this.ttsUrlCache.set(cacheKey, data.url);
+        // Tải trước buffer âm thanh vào RAM trình duyệt
+        const a = new Audio();
+        a.preload = "auto";
+        a.src = data.url;
         return data.url;
       }
       return null;
@@ -248,23 +299,37 @@ const RacerScreen = {
     }
   },
 
-  // Phát chuỗi âm thanh nối liền mạch không khoảng khựng, tuân thủ playbackRate
-  playSeamlessSequence(urlList) {
+  // Phát chuỗi âm thanh nối liền mạch không khoảng khựng, đồng bộ onStart ngay khi cất tiếng
+  playSeamlessSequence(urlList, onStart) {
     return new Promise((resolve) => {
       AppState.stopAudio();
       const player = AppState.audioPlayer;
       if (!urlList || urlList.length === 0) {
+        if (typeof onStart === "function") onStart();
         resolve();
         return;
       }
 
       AppState.currentAudioResolve = resolve;
       let currentIndex = 0;
+      let startTriggered = false;
+
+      const triggerStart = () => {
+        if (!startTriggered) {
+          startTriggered = true;
+          if (typeof onStart === "function") {
+            onStart();
+          }
+        }
+      };
 
       const cleanup = () => {
         player.ontimeupdate = null;
         player.onended = null;
         player.onerror = null;
+        player.removeEventListener("playing", triggerStart);
+        player.removeEventListener("play", triggerStart);
+        triggerStart();
         if (AppState.currentAudioResolve === resolve) {
           AppState.currentAudioResolve = null;
         }
@@ -305,20 +370,37 @@ const RacerScreen = {
 
         player.onerror = cleanup;
 
+        // Bắt chính xác sự kiện phát tiếng của clip đầu tiên để kích hoạt nhả thẻ đồng bộ 0ms
+        if (currentIndex === 0) {
+          player.addEventListener("playing", triggerStart, { once: true });
+          player.addEventListener("play", triggerStart, { once: true });
+        }
+
         player.src = url;
         if (AppState.playbackRate) {
           player.playbackRate = AppState.playbackRate;
           player.defaultPlaybackRate = AppState.playbackRate;
         }
-        player.play().catch(cleanup);
+        player.play().then(triggerStart).catch(cleanup);
       };
 
       playItem(urlList[0]);
     });
   },
 
-  // Cấu hình & Thiết kế đồ họa SVG cho 4 loại xe cỡ lớn
+  // Cấu hình & Thiết kế đồ họa cho các loại xe trong Gara của bé Đậu
   VEHICLE_CONFIGS: {
+    bicycle: {
+      id: "bicycle",
+      nameVi: "🚲 Đậu Chở Em",
+      nameEn: "Bicycle Ride",
+      icon: "🚲",
+      color: "#10b981",
+      badge: "⭐ Siêu đặc biệt",
+      renderSVG: () => `
+        <img src="/static/images/dau-cho-em.png" alt="Đậu chở em" class="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] select-none pointer-events-none" />
+      `
+    },
     police: {
       id: "police",
       nameVi: "Xe Cảnh Sát",
@@ -546,9 +628,9 @@ const RacerScreen = {
     }
   },
 
-  // Lấy SVG của loại xe đang chọn
+  // Lấy SVG hoặc hình ảnh của loại xe đang chọn
   getCarSVG(carId) {
-    const config = this.VEHICLE_CONFIGS[carId] || this.VEHICLE_CONFIGS.police;
+    const config = this.VEHICLE_CONFIGS[carId] || this.VEHICLE_CONFIGS.bicycle || this.VEHICLE_CONFIGS.police;
     return config.renderSVG();
   },
 
@@ -566,7 +648,8 @@ const RacerScreen = {
     this.playerLane = 1;
     this.isSpawningWave = false;
     this.getAudioContext();
-    this.preloadAllPraises();
+    // Nạp trước câu hỏi lượt 1 ngay từ khi mở Gara (nhường 100% băng thông)
+    this.nextWaveData = this.prepareWaveData();
     this.renderContainer();
     this.setupSwipeListeners();
     // Mở Gara chọn xe trước khi xuất phát
@@ -779,8 +862,8 @@ const RacerScreen = {
           <div id="player-car" class="absolute bottom-4 w-1/3 flex flex-col justify-center items-center transition-all duration-200 pointer-events-none z-20" style="left: 33.333%;">
             <!-- Chùm sáng đèn pha rọi phía trước mũi xe -->
             <div class="w-[85%] max-w-[140px] h-32 -mb-6 headlight-cone pointer-events-none filter blur-[1px]"></div>
-            <!-- Xe SVG cỡ lớn w-[78%] -->
-            <div id="car-inner" class="w-[78%] max-w-[130px] aspect-[100/150] flex items-center justify-center transition-transform duration-200">
+            <!-- Xe cỡ lớn w-[78%] (hoặc h-32 md:h-36 cho xe đạp) -->
+            <div id="car-inner" class="${this.selectedCar === 'bicycle' ? 'w-[85%] max-w-[140px] h-32 md:h-36' : 'w-[78%] max-w-[130px] aspect-[100/150]'} flex items-center justify-center transition-transform duration-200">
               ${this.getCarSVG(this.selectedCar)}
             </div>
             <!-- Vùng nhả khói xả đuôi xe khi bẻ lái -->
@@ -845,10 +928,36 @@ const RacerScreen = {
     this.updateHeartsUI();
   },
 
-  // Tạo HTML danh sách 4 xe trong Gara
+  // Tạo HTML danh sách các xe trong Gara
   getGarageCardsHTML() {
     return Object.values(this.VEHICLE_CONFIGS).map(car => {
       const isSelected = (this.selectedCar === car.id);
+      const isBicycle = (car.id === "bicycle");
+
+      if (isBicycle) {
+        const activeClass = isSelected
+          ? "ring-4 ring-amber-400 bg-gradient-to-r from-amber-100 via-yellow-100 to-amber-100 border-amber-400 scale-[1.01] shadow-lg"
+          : "border-amber-300 bg-gradient-to-r from-amber-50/90 to-yellow-50/80 hover:bg-amber-100/80 shadow-sm";
+
+        return `
+          <div onclick="RacerScreen.selectCar('${car.id}')" class="col-span-2 garage-car-card cursor-pointer rounded-2xl border-2 p-3 flex items-center justify-between transition-all duration-200 relative ${activeClass}" id="car-card-${car.id}">
+            <div class="h-28 md:h-32 w-24 md:w-28 shrink-0 flex items-center justify-center p-1">
+              ${car.renderSVG()}
+            </div>
+            <div class="flex-1 ml-3 text-left">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[11px] md:text-xs bg-amber-400 text-slate-900 px-2.5 py-0.5 rounded-full font-black shadow-xs">⭐ Siêu đặc biệt</span>
+                ${isSelected ? '<span class="bg-emerald-500 text-white text-[10px] md:text-xs px-2.5 py-0.5 rounded-full font-black shadow-xs">Đang chọn</span>' : ''}
+              </div>
+              <div class="font-black text-slate-900 text-base md:text-lg mt-1 flex items-center gap-1.5">
+                <span>${car.nameVi}</span>
+              </div>
+              <p class="text-xs font-bold text-slate-600 mt-0.5">Bé Đậu đạp xe chở em cùng đua tài hứng sao!</p>
+            </div>
+          </div>
+        `;
+      }
+
       const activeClass = isSelected
         ? "ring-4 ring-amber-400 bg-amber-50/90 border-amber-400 scale-[1.02] shadow-md"
         : "border-slate-200 bg-slate-50/80 hover:bg-slate-100";
@@ -892,6 +1001,10 @@ const RacerScreen = {
     if (modal) {
       modal.classList.remove("hidden");
     }
+    // Nếu chưa nạp trước lượt 1 thì chuẩn bị ngay
+    if (!this.nextWaveData) {
+      this.nextWaveData = this.prepareWaveData();
+    }
   },
 
   // Đóng Gara và xác nhận xe đã chọn
@@ -904,6 +1017,8 @@ const RacerScreen = {
     this.updateCarSVG();
     this.startContinuousLoop();
     this.startNextWave();
+    // Bắt đầu nạp xen kẽ các câu khen ngợi nhẹ nhàng sau khi đã xuất phát
+    this.preloadPraisesStaggered();
   },
 
   // Chạm chọn 1 loại xe trong Gara
@@ -919,11 +1034,16 @@ const RacerScreen = {
     this.updateCarSVG();
   },
 
-  // Cập nhật lại SVG của xe trên đường đua
+  // Cập nhật lại SVG hoặc hình ảnh của xe trên đường đua
   updateCarSVG() {
     const inner = document.getElementById("car-inner");
     if (inner) {
       inner.innerHTML = this.getCarSVG(this.selectedCar);
+      if (this.selectedCar === "bicycle") {
+        inner.className = "w-[85%] max-w-[140px] h-32 md:h-36 flex items-center justify-center transition-transform duration-200";
+      } else {
+        inner.className = "w-[78%] max-w-[130px] aspect-[100/150] flex items-center justify-center transition-transform duration-200";
+      }
     }
   },
 
@@ -1005,6 +1125,7 @@ const RacerScreen = {
     this.isRacing = false;
     this.isWaitingForQuestion = false;
     this.isSpawningWave = false;
+    this.nextWaveData = null;
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -1080,45 +1201,26 @@ const RacerScreen = {
   async startNextWave(isRetry = false) {
     if (!this.isRacing || this.isSpawningWave) return;
     this.isSpawningWave = true;
-    const words = AppState.currentTopic.words;
-    
-    // Nếu là thử lại lượt vừa sai, giữ nguyên currentWord để bé làm chủ từ vựng
-    if (!isRetry || !this.currentWord) {
-      this.currentWord = words[Math.floor(Math.random() * words.length)];
-    }
-    
-    // Chọn 2 từ sai
-    const others = words.filter(w => w.id !== this.currentWord.id);
-    for (let i = others.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [others[i], others[j]] = [others[j], others[i]];
-    }
-    const distractors = others.slice(0, 2);
 
-    // Xếp ngẫu nhiên vào 3 làn: 0, 1, 2
-    this.targetLaneIndex = Math.floor(Math.random() * 3);
-    this.options = [null, null, null];
-    this.options[this.targetLaneIndex] = { word: this.currentWord, isTarget: true };
-
-    let distractorIndex = 0;
-    for (let lane = 0; lane < 3; lane++) {
-      if (this.options[lane] === null) {
-        this.options[lane] = { word: distractors[distractorIndex++], isTarget: false };
-      }
-    }
-
-    // Chọn mẫu câu hỏi ngẫu nhiên (không lặp lại mẫu vừa hỏi)
-    this.currentTemplate = this.getRandomTemplate();
-
-    // Tải trước đồng thời toàn bộ audio của câu hỏi để nối âm tức thì
-    if (AppState.voiceMode === "bilingual") {
-      const parts = this.currentTemplate.parts(this.currentWord.en);
-      this.preloadPromise = Promise.all(parts.map(p => this.fetchAudioUrl(p.text, p.lang)));
+    // Sử dụng bộ dữ liệu đã được tính toán & nạp âm thanh trước (Pipeline pre-caching)
+    let waveData = null;
+    if (!isRetry && this.nextWaveData) {
+      waveData = this.nextWaveData;
+      this.nextWaveData = null;
     } else {
-      this.preloadPromise = Promise.all([
-        this.fetchAudioUrl(this.currentTemplate.enOnly(this.currentWord.en), "en")
-      ]);
+      waveData = this.prepareWaveData(isRetry ? this.currentWord : null);
     }
+
+    if (!waveData) {
+      this.isSpawningWave = false;
+      return;
+    }
+
+    this.currentWord = waveData.word;
+    this.targetLaneIndex = waveData.targetLaneIndex;
+    this.options = waveData.options;
+    this.currentTemplate = waveData.template;
+    this.preloadPromise = waveData.preloadPromise;
 
     // Cập nhật biểu ngữ câu hỏi to rõ phía trên đường đua
     const keywordEl = document.getElementById("racer-keyword-display");
@@ -1175,34 +1277,51 @@ const RacerScreen = {
       banner.textContent = `Đậu lắng nghe câu hỏi rồi lái xe nhé! 👂🚗`;
     }
 
-    // TẠM DỪNG CỤM THẺ TẠI VẠCH XUẤT PHÁT TRONG KHI ĐỌC CÂU HỎI
+    // TẠM DỪNG CỤM THẺ TẠI VẠCH XUẤT PHÁT TRONG KHI CHỜ ÂM THANH BẮT ĐẦU PHÁT
     this.isWaitingForQuestion = true;
     this.waveStartTime = null;
 
-    // Đợi phát âm xong câu hỏi (hoặc tối đa 2.5s nếu tắt tiếng / mạng chậm)
-    const promptPromise = this.playQuestionPrompt();
-    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
-    await Promise.race([promptPromise, timeoutPromise]);
-
-    if (!this.isRacing) {
+    let waveReleased = false;
+    const releaseWave = () => {
+      if (waveReleased) return;
+      waveReleased = true;
+      if (!this.isRacing) {
+        this.isSpawningWave = false;
+        return;
+      }
+      // ĐỒNG BỘ TUYỆT ĐỐI 0MS: Mở cờ cho thẻ rơi & gán mốc thời gian rơi
+      this.isWaitingForQuestion = false;
+      this.waveStartTime = performance.now();
       this.isSpawningWave = false;
-      return;
-    }
 
-    // NGAY KHI ĐỌC DỨT CÂU HỎI: BẮT ĐẦU CHO CỤM THẺ TRÔI XUỐNG
-    this.isWaitingForQuestion = false;
-    this.waveStartTime = performance.now();
-    this.isSpawningWave = false;
+      if (banner) {
+        const config = this.VEHICLE_CONFIGS[this.selectedCar];
+        const carName = config ? config.nameVi : "Xe";
+        const icon = config?.icon || "🚗";
+        banner.textContent = `Đậu lái ${carName} đón hình "${this.currentWord.en}" nào! ${icon}💨`;
+      }
 
-    if (banner) {
-      const carName = this.VEHICLE_CONFIGS[this.selectedCar]?.nameVi || "Xe";
-      banner.textContent = `Đậu lái ${carName} đón hình "${this.currentWord.en}" nào! 🚗💨`;
-    }
+      // ĐÓN ĐẦU ỐNG DẪN (Pipeline Pre-caching): Khi xe bắt đầu chạy, tính trước & nạp âm thanh cho Lượt N+1
+      setTimeout(() => {
+        if (this.isRacing && !this.nextWaveData) {
+          this.nextWaveData = this.prepareWaveData();
+        }
+      }, 1000);
+    };
+
+    // Đợi tín hiệu âm thanh bắt đầu phát thực sự (hoặc tối đa 4500ms an toàn nếu tắt tiếng / mạng chậm)
+    const promptPromise = this.playQuestionPrompt(releaseWave);
+    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 4500));
+    await Promise.race([promptPromise, timeoutPromise]);
+    releaseWave();
   },
 
-  // Phát câu hỏi nối âm liền mạch không khoảng khựng
-  async playQuestionPrompt() {
-    if (!this.currentWord || !this.currentTemplate) return;
+  // Phát câu hỏi nối âm liền mạch không khoảng khựng, kích hoạt onAudioStarted ngay khi có tiếng
+  async playQuestionPrompt(onAudioStarted) {
+    if (!this.currentWord || !this.currentTemplate) {
+      if (typeof onAudioStarted === "function") onAudioStarted();
+      return;
+    }
 
     if (AppState.voiceMode === "bilingual") {
       try {
@@ -1211,19 +1330,40 @@ const RacerScreen = {
           urls = await this.preloadPromise;
         }
         if (urls && Array.isArray(urls) && urls.every(u => !!u)) {
-          await this.playSeamlessSequence(urls);
+          await this.playSeamlessSequence(urls, onAudioStarted);
         } else {
           const parts = this.currentTemplate.parts(this.currentWord.en);
+          let started = false;
+          const trigger = () => {
+            if (!started) {
+              started = true;
+              if (typeof onAudioStarted === "function") onAudioStarted();
+            }
+          };
+          AppState.audioPlayer.addEventListener("playing", trigger, { once: true });
+          AppState.audioPlayer.addEventListener("play", trigger, { once: true });
           for (const p of parts) {
             await AppState.speakText(p.text, p.lang);
           }
+          trigger();
         }
       } catch (e) {
         console.error("Lỗi phát câu hỏi song ngữ racer:", e);
+        if (typeof onAudioStarted === "function") onAudioStarted();
       }
     } else {
       const enText = this.currentTemplate.enOnly(this.currentWord.en);
+      let started = false;
+      const trigger = () => {
+        if (!started) {
+          started = true;
+          if (typeof onAudioStarted === "function") onAudioStarted();
+        }
+      };
+      AppState.audioPlayer.addEventListener("playing", trigger, { once: true });
+      AppState.audioPlayer.addEventListener("play", trigger, { once: true });
       await AppState.speakText(enText, "en");
+      trigger();
     }
   },
 
