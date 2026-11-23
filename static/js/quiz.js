@@ -12,6 +12,15 @@ const QuizScreen = {
   lastTargetWordId: null,
   lastCorrectIndex: -1,
   distractorCounts: {},
+  ttsUrlCache: new Map(),
+  webAudioCtx: null,
+  preloadedPraises: {},
+  nextQuestionData: null,
+  currentStageQuestion: 0,
+  stageTotalQuestions: 5,
+  stageStars: 0,
+  streak: 0,
+  mascotState: "normal",
 
   // 5 mẫu câu hỏi tiếng Việt thân thiện của cô giáo
   VI_QUESTIONS: [
@@ -31,6 +40,120 @@ const QuizScreen = {
     "Đậu siêu quá, cô thưởng một ngôi sao nhé!",
     "Xuất sắc lắm Đậu ơi, mười điểm luôn!"
   ],
+
+  // Khởi tạo AudioContext đơn vị (Singleton) sẵn sàng phát tức thì 0ms
+  getAudioContext() {
+    if (!this.webAudioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.webAudioCtx = new AudioCtx();
+      }
+    }
+    if (this.webAudioCtx && this.webAudioCtx.state === "suspended") {
+      this.webAudioCtx.resume().catch(() => {});
+    }
+    return this.webAudioCtx;
+  },
+
+  // Hiệu ứng âm thanh "Ting!" pha lê vui tai tức thì 0ms bằng Web Audio API nội bộ
+  playVictoryChime() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      // Hợp âm Ting! pha lê đôi: Note 1 (E6: 1318.5Hz) vút lên Note 2 (C7: 2093Hz) kèm âm hòa sắc 2637Hz
+      const chimes = [
+        { freq: 1318.51, time: now, duration: 0.35, gain: 0.25 },
+        { freq: 2093.00, time: now + 0.045, duration: 0.45, gain: 0.32 },
+        { freq: 2637.02, time: now + 0.075, duration: 0.35, gain: 0.16 }
+      ];
+
+      chimes.forEach(chime => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(chime.freq, chime.time);
+
+        gain.gain.setValueAtTime(0.001, chime.time);
+        gain.gain.exponentialRampToValueAtTime(chime.gain, chime.time + 0.008); // Bật tiếng đanh tức thì 8ms
+        gain.gain.exponentialRampToValueAtTime(0.0001, chime.time + chime.duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(chime.time);
+        osc.stop(chime.time + chime.duration + 0.05);
+      });
+    } catch (e) {
+      console.warn("Lỗi phát victory chime:", e);
+    }
+  },
+
+  // Tải trước 6 câu khen ngợi cố định một cách nhẹ nhàng xen kẽ
+  preloadPraisesStaggered() {
+    this.preloadedPraises = this.preloadedPraises || {};
+    const viList = this.VI_PRAISES || [];
+    const enList = [
+      "Spot on, Đậu! Awesome!",
+      "Great job, Đậu!",
+      "Super, you found it, Đậu!"
+    ];
+    const allPraises = [
+      ...viList.map(text => ({ text, lang: "vi" })),
+      ...enList.map(text => ({ text, lang: "en" }))
+    ];
+
+    allPraises.forEach((item, index) => {
+      setTimeout(() => {
+        const key = `${item.lang}_${item.text}`;
+        if (!this.preloadedPraises[key]) {
+          this.fetchAudioUrl(item.text, item.lang).then(url => {
+            if (url) {
+              this.preloadedPraises[key] = url;
+            }
+          });
+        }
+      }, 400 + index * 500); // Xen kẽ mỗi 500ms không làm nghẽn mạng
+    });
+  },
+
+  // Phát file audio đã được nạp sẵn từ cache
+  playPreloadedAudio(url) {
+    return new Promise((resolve) => {
+      if (!url) {
+        resolve();
+        return;
+      }
+      try {
+        AppState.stopAudio();
+        const player = AppState.audioPlayer;
+        AppState.currentAudioResolve = resolve;
+
+        const onFinish = () => {
+          player.onended = null;
+          player.onerror = null;
+          if (AppState.currentAudioResolve === resolve) {
+            AppState.currentAudioResolve = null;
+          }
+          resolve();
+        };
+
+        player.onended = onFinish;
+        player.onerror = onFinish;
+        player.src = url;
+        if (AppState.playbackRate) {
+          player.playbackRate = AppState.playbackRate;
+          player.defaultPlaybackRate = AppState.playbackRate;
+        }
+        player.play().catch(onFinish);
+      } catch (e) {
+        console.warn("Lỗi phát audio có sẵn:", e);
+        resolve();
+      }
+    });
+  },
 
   getRandomQuestionPrompt() {
     const list = this.VI_QUESTIONS.filter(q => q !== this.lastQuestionPrompt);
@@ -121,6 +244,13 @@ const QuizScreen = {
 
   // Bắt đầu màn hình Quiz
   start() {
+    this.getAudioContext();
+    this.preloadPraisesStaggered();
+    this.currentStageQuestion = 0;
+    this.stageStars = 0;
+    this.streak = 0;
+    this.mascotState = "normal";
+
     const pool = this.getWordPool();
     if (!pool || pool.length < 4) {
       if (AppState.topics && AppState.topics.length > 0) {
@@ -143,10 +273,12 @@ const QuizScreen = {
       }
     }
     this.selectedTopicId = (AppState.currentTopic && AppState.currentTopic.id) ? AppState.currentTopic.id : "all";
-    this.questionQueue = [];
-    this.lastTargetWordId = null;
-    this.lastCorrectIndex = -1;
-    this.distractorCounts = {};
+    if (!this.nextQuestionData) {
+      this.questionQueue = [];
+      this.lastTargetWordId = null;
+      this.lastCorrectIndex = -1;
+      this.distractorCounts = {};
+    }
     this.renderContainer();
     this.nextQuestion();
   },
@@ -157,10 +289,180 @@ const QuizScreen = {
     this.questionQueue = [];
     this.lastTargetWordId = null;
     this.lastCorrectIndex = -1;
+    this.nextQuestionData = null;
+    this.currentStageQuestion = 0;
+    this.stageStars = 0;
+    this.streak = 0;
     if (newTopicId !== "all" && AppState.topics) {
       const found = AppState.topics.find(t => t.id === newTopicId);
       if (found) AppState.currentTopic = found;
     }
+    this.nextQuestion();
+  },
+
+  // Cập nhật thanh tiến độ chặng 5 câu
+  updateStageProgress() {
+    const numEl = document.getElementById("quiz-stage-num");
+    if (numEl) {
+      numEl.textContent = `${this.currentStageQuestion + 1}/${this.stageTotalQuestions}`;
+    }
+    for (let i = 0; i < this.stageTotalQuestions; i++) {
+      const stepEl = document.getElementById(`quiz-step-${i}`);
+      if (stepEl) {
+        if (i < this.currentStageQuestion) {
+          stepEl.className = "flex-1 h-3 sm:h-3.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 shadow-sm relative flex items-center justify-center transition-all duration-300";
+          stepEl.innerHTML = '<span class="text-[10px] leading-none">⭐</span>';
+        } else if (i === this.currentStageQuestion) {
+          stepEl.className = "flex-1 h-3 sm:h-3.5 rounded-full bg-amber-300 ring-2 ring-amber-400 ring-offset-1 animate-pulse relative flex items-center justify-center transition-all duration-300";
+          stepEl.innerHTML = '';
+        } else {
+          stepEl.className = "flex-1 h-3 sm:h-3.5 rounded-full bg-slate-200 relative flex items-center justify-center transition-all duration-300";
+          stepEl.innerHTML = '';
+        }
+      }
+    }
+    const trophyEl = document.getElementById("quiz-stage-trophy");
+    if (trophyEl) {
+      if (this.currentStageQuestion === this.stageTotalQuestions - 1) {
+        trophyEl.className = "text-xl sm:text-2xl filter drop-shadow-sm shrink-0 animate-bounce";
+      } else {
+        trophyEl.className = "text-xl sm:text-2xl filter drop-shadow-sm shrink-0 opacity-70";
+      }
+    }
+  },
+
+  // Cập nhật trạng thái biểu cảm linh vật cổ vũ
+  setMascot(state) {
+    this.mascotState = state;
+    const avatarEl = document.getElementById("quiz-mascot-avatar");
+    const speechEl = document.getElementById("quiz-mascot-speech");
+    const cardEl = document.getElementById("quiz-mascot-card");
+    if (!avatarEl || !speechEl) return;
+
+    if (state === "happy") {
+      avatarEl.textContent = "🎉";
+      avatarEl.className = "text-2xl sm:text-3xl animate-bounce";
+      speechEl.textContent = "Hoan hô, Đậu siêu quá! 👏";
+      speechEl.className = "text-xs font-black text-emerald-600 truncate";
+      if (cardEl) cardEl.className = "flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-2xl bg-emerald-50 shadow-sm border border-emerald-300 transition-all duration-300 shrink-0";
+    } else if (state === "encourage") {
+      avatarEl.textContent = "😉";
+      avatarEl.className = "text-2xl sm:text-3xl animate-pulse";
+      speechEl.textContent = "Thử lại cùng cô nào Đậu ơi! ❤️";
+      speechEl.className = "text-xs font-black text-amber-700 truncate";
+      if (cardEl) cardEl.className = "flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-2xl bg-amber-50 shadow-sm border border-amber-300 transition-all duration-300 shrink-0";
+    } else {
+      avatarEl.textContent = "🥑";
+      avatarEl.className = "text-2xl sm:text-3xl";
+      speechEl.textContent = "Đậu lắng nghe câu hỏi nhé! 👂";
+      speechEl.className = "text-xs font-bold text-slate-600 truncate";
+      if (cardEl) cardEl.className = "flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-2xl bg-white/90 shadow-sm border border-amber-200 transition-all duration-300 shrink-0";
+    }
+  },
+
+  // Hiệu ứng pháo giấy Confetti mini bung tỏa tại ô đáp án đúng
+  triggerConfetti(cardEl) {
+    if (!cardEl) return;
+    const rect = cardEl.getBoundingClientRect();
+    const colors = ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#8b5cf6", "#facc15"];
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("div");
+      const size = 6 + Math.random() * 8;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      piece.className = "fixed rounded-sm pointer-events-none z-50";
+      piece.style.width = `${size}px`;
+      piece.style.height = `${size * (Math.random() > 0.5 ? 1 : 1.5)}px`;
+      piece.style.backgroundColor = color;
+      piece.style.left = `${rect.left + rect.width / 2}px`;
+      piece.style.top = `${rect.top + rect.height / 2}px`;
+      piece.style.transform = "translate(0, 0)";
+      piece.style.transition = "transform 0.65s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.65s ease-out";
+      document.body.appendChild(piece);
+
+      const angle = (i / count) * 2 * Math.PI + (Math.random() - 0.5) * 0.5;
+      const distance = 40 + Math.random() * 70;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance - 20;
+
+      requestAnimationFrame(() => {
+        piece.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random() * 360}deg)`;
+        piece.style.opacity = "0";
+      });
+
+      setTimeout(() => piece.remove(), 700);
+    }
+  },
+
+  // Hiệu ứng Ngôi sao vàng bay vút từ ô đáp án lên thanh điểm số Header
+  triggerFlyingStar(cardEl) {
+    if (!cardEl) return;
+    const rect = cardEl.getBoundingClientRect();
+    const targetEl = document.getElementById("star-count") || document.getElementById("btn-home");
+    const targetRect = targetEl ? targetEl.getBoundingClientRect() : { left: 80, top: 20 };
+
+    const star = document.createElement("div");
+    star.className = "fixed text-3xl pointer-events-none z-50 filter drop-shadow-[0_4px_10px_rgba(250,204,21,0.8)]";
+    star.textContent = "⭐";
+    star.style.left = `${rect.left + rect.width / 2 - 16}px`;
+    star.style.top = `${rect.top + rect.height / 2 - 16}px`;
+    star.style.transition = "transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.75s ease-in, scale 0.75s ease-in";
+    document.body.appendChild(star);
+
+    const dx = (targetRect.left + 10) - (rect.left + rect.width / 2 - 16);
+    const dy = (targetRect.top + 10) - (rect.top + rect.height / 2 - 16);
+
+    requestAnimationFrame(() => {
+      star.style.transform = `translate(${dx}px, ${dy}px) scale(0.6)`;
+      star.style.opacity = "0.9";
+    });
+
+    setTimeout(() => {
+      star.remove();
+      if (targetEl) {
+        targetEl.classList.remove("scale-125");
+        void targetEl.offsetWidth;
+        targetEl.classList.add("scale-125", "transition-transform");
+        setTimeout(() => targetEl.classList.remove("scale-125"), 250);
+      }
+    }, 750);
+  },
+
+  // Hiển thị Modal chúc mừng Trao Cúp Vàng sau 5 câu
+  showStageCompletionModal() {
+    const modal = document.getElementById("quiz-stage-modal");
+    const starsEarnedEl = document.getElementById("stage-stars-earned");
+    if (starsEarnedEl) {
+      starsEarnedEl.textContent = this.stageStars;
+    }
+    if (modal) {
+      modal.classList.remove("hidden");
+    }
+    this.playVictoryChime();
+    setTimeout(() => this.playVictoryChime(), 260);
+
+    if (AppState.voiceMode === "bilingual") {
+      AppState.speakText("Hoan hô! Đậu của cô xuất sắc nhận cúp vàng rồi!", "vi");
+    } else {
+      AppState.speakText("Hurray! You got the golden trophy, Đậu!", "en");
+    }
+  },
+
+  // Chơi lại chặng 5 câu mới
+  startNewStage() {
+    const modal = document.getElementById("quiz-stage-modal");
+    if (modal) {
+      modal.classList.add("hidden");
+    }
+    this.currentStageQuestion = 0;
+    this.stageStars = 0;
+    this.streak = 0;
+    const comboBadge = document.getElementById("quiz-combo-badge");
+    if (comboBadge) {
+      comboBadge.classList.add("hidden");
+      comboBadge.classList.remove("flex");
+    }
+    this.nextQuestionData = null;
     this.nextQuestion();
   },
 
@@ -182,7 +484,7 @@ const QuizScreen = {
       </style>
 
       <div class="w-full h-full flex flex-col justify-between max-w-5xl mx-auto py-1 relative">
-        <!-- Thanh điều hướng & Câu hỏi & Bộ chọn chủ đề -->
+        <!-- TẦNG 1: Thanh điều hướng & Câu hỏi & Bộ chọn chủ đề -->
         <div class="flex items-center justify-between w-full px-2 gap-2">
           <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3.5 md:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 text-xs md:text-sm shrink-0 cursor-pointer">
             <span aria-hidden="true">⬅️</span>
@@ -207,23 +509,100 @@ const QuizScreen = {
           </div>
         </div>
 
-        <!-- LƯỚI 4 Ô CHỮ NHẬT TO (GRID 2x2) VỪA KHÍT MÀN HÌNH IPAD & ĐIỆN THOẠI -->
-        <div id="quiz-grid" class="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 md:gap-6 flex-1 w-full my-2 sm:my-3">
+        <!-- TẦNG 2: THANH TIẾN ĐỘ CHẶNG 5 CÂU HƯỚNG TỚI CÚP VÀNG -->
+        <div class="w-full px-3 py-1 flex items-center justify-between gap-2 max-w-xl mx-auto">
+          <div class="flex items-center gap-1.5 font-black text-xs md:text-sm text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full shadow-inner shrink-0">
+            <span>Chặng</span>
+            <span id="quiz-stage-num">${this.currentStageQuestion + 1}/${this.stageTotalQuestions}</span>
+          </div>
+
+          <!-- Dãy 5 nấc sao -->
+          <div class="flex-1 flex items-center justify-between gap-1.5 sm:gap-2 px-1">
+            ${[0, 1, 2, 3, 4].map(i => `
+              <div id="quiz-step-${i}" class="flex-1 h-3 sm:h-3.5 rounded-full transition-all duration-300 ${i < this.currentStageQuestion ? 'bg-gradient-to-r from-amber-400 to-yellow-400 shadow-sm' : (i === this.currentStageQuestion ? 'bg-amber-300 ring-2 ring-amber-400 ring-offset-1 animate-pulse' : 'bg-slate-200')} relative flex items-center justify-center">
+                ${i < this.currentStageQuestion ? '<span class="text-[10px] leading-none">⭐</span>' : ''}
+              </div>
+            `).join("")}
+          </div>
+
+          <!-- Biểu tượng Cúp Vàng đích đến -->
+          <div id="quiz-stage-trophy" class="text-xl sm:text-2xl filter drop-shadow-sm shrink-0 transition-transform ${this.currentStageQuestion === this.stageTotalQuestions - 1 ? 'animate-bounce' : 'opacity-70'}">
+            🏆
+          </div>
+        </div>
+
+        <!-- TẦNG 3: LƯỚI 4 Ô CHỮ NHẬT TO (GRID 2x2) VỪA KHÍT MÀN HÌNH IPAD & ĐIỆN THOẠI -->
+        <div id="quiz-grid" class="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 md:gap-5 flex-1 w-full my-1 sm:my-2">
           <!-- 4 Ô đáp án được chèn động -->
         </div>
 
-        <!-- Thông báo khích lệ & Trạng thái -->
-        <div class="h-10 flex items-center justify-center">
-          <p id="quiz-feedback" class="text-sm sm:text-base font-bold text-slate-500">
-            Đậu chạm vào hình con tìm được nhé! 👆
-          </p>
+        <!-- TẦNG 4: KHU VỰC THÔNG BÁO, NHÂN VẬT CỔ VŨ MINI & HUY HIỆU COMBO -->
+        <div class="min-h-[3rem] flex items-center justify-between w-full px-2 sm:px-4 py-1 gap-2 bg-white/60 backdrop-blur-xs rounded-2xl border border-amber-100">
+          <!-- Linh vật Bé Đậu & Cô giáo mini -->
+          <div id="quiz-mascot-card" class="flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-2xl bg-white/90 shadow-sm border border-amber-200 transition-all duration-300 shrink-0">
+            <div id="quiz-mascot-avatar" class="text-2xl sm:text-3xl transition-transform duration-300">
+              🥑
+            </div>
+            <div class="flex flex-col text-left">
+              <span id="quiz-mascot-name" class="text-[10px] md:text-[11px] font-black text-amber-700">Cô giáo & Đậu</span>
+              <span id="quiz-mascot-speech" class="text-xs font-bold text-slate-700 max-w-[130px] sm:max-w-[200px] truncate">Đậu cố lên nhé!</span>
+            </div>
+          </div>
+
+          <!-- Thông báo khích lệ -->
+          <div id="quiz-feedback-box" class="flex-1 flex items-center justify-center px-1">
+            <p id="quiz-feedback" class="text-xs sm:text-sm md:text-base font-bold text-slate-500 text-center truncate">
+              Đậu chạm vào hình con tìm được nhé! 👆
+            </p>
+          </div>
+
+          <!-- Huy hiệu Combo Streak (Hiển thị khi streak >= 3) -->
+          <div id="quiz-combo-badge" class="hidden items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black text-xs sm:text-sm shadow-md animate-bounce shrink-0">
+            <span>🔥</span>
+            <span id="quiz-combo-text">Combo 3! (x2 ⭐)</span>
+          </div>
+        </div>
+
+        <!-- MODAL TỔNG KẾT TRAO CÚP VÀNG SAU 5 CÂU -->
+        <div id="quiz-stage-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300 hidden">
+          <div class="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl border-4 border-amber-300 p-6 flex flex-col items-center text-center">
+            <div class="text-7xl sm:text-8xl mb-2 animate-bounce">🏆</div>
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">HOÀN THÀNH CHẶNG ĐUA!</h2>
+            <p class="text-sm sm:text-base font-bold text-amber-600 mt-1">Đậu xuất sắc vượt qua 5 câu hỏi!</p>
+
+            <div class="my-4 px-6 py-3 rounded-2xl bg-amber-50 border-2 border-amber-200 flex items-center gap-3">
+              <span class="text-3xl">⭐</span>
+              <div class="text-left">
+                <div class="text-xs font-bold text-slate-500 uppercase">Sao kiếm được trong chặng</div>
+                <div class="text-2xl font-black text-amber-600">+<span id="stage-stars-earned">5</span> sao</div>
+              </div>
+            </div>
+
+            <div class="w-full flex flex-col gap-2.5 mt-2">
+              <button onclick="QuizScreen.startNewStage()" class="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg border-2 border-white flex items-center justify-center gap-2 cursor-pointer transition-all">
+                <span>🔄</span>
+                <span>Chơi lại chặng mới</span>
+                <span>🚀</span>
+              </button>
+
+              <button onclick="AppState.showScreen('screen-home')" class="w-full py-2.5 sm:py-3 px-6 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer transition-all">
+                <span>🏠</span>
+                <span>Về chọn chủ đề</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `;
   },
 
-  // Lấy URL audio từ backend TTS
+  // Lấy URL audio từ backend TTS kèm bộ nhớ đệm cache và pre-buffer
   async fetchAudioUrl(text, lang) {
+    if (!text) return null;
+    const cacheKey = `${lang}_${text}`;
+    if (this.ttsUrlCache && this.ttsUrlCache.has(cacheKey)) {
+      return this.ttsUrlCache.get(cacheKey);
+    }
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
@@ -232,29 +611,31 @@ const QuizScreen = {
       });
       if (!res.ok) return null;
       const data = await res.json();
-      return data ? data.url : null;
+      if (data && data.url) {
+        if (!this.ttsUrlCache) this.ttsUrlCache = new Map();
+        this.ttsUrlCache.set(cacheKey, data.url);
+        // Tải trước buffer âm thanh vào RAM trình duyệt
+        const a = new Audio();
+        a.preload = "auto";
+        a.src = data.url;
+        return data.url;
+      }
+      return null;
     } catch (err) {
-      console.error("Lỗi tải trước âm thanh:", err);
+      console.error("Lỗi tải trước âm thanh quiz:", err);
       return null;
     }
   },
 
-  // Tạo câu hỏi mới (áp dụng túi xào bài + chống lặp vị trí ô 2x2)
-  nextQuestion() {
-    this.isLocked = false;
-    
-    // 1. Rút 1 từ đích từ túi xào bài Fisher-Yates (không bao giờ lặp cho đến khi hết vòng)
+  // Chuẩn bị trước bộ dữ liệu câu đố & nạp ngầm audio (Pipeline pre-caching)
+  prepareQuestionData() {
     const target = this.getNextTargetWord();
-    if (!target) return;
-    this.currentWord = target;
+    if (!target) return null;
 
-    // 2. Chọn ngẫu nhiên mẫu câu hỏi tiếng Việt (không lặp với câu liền trước)
-    this.currentPrompt = this.getRandomQuestionPrompt();
+    const prompt = this.getRandomQuestionPrompt();
 
-    // 3. Xào ngẫu nhiên 3 đáp án nhiễu (ưu tiên những từ ít xuất hiện gần đây nhất)
     const pool = this.getWordPool();
     const candidates = pool.filter(w => w.id !== target.id);
-
     candidates.sort((a, b) => {
       const countA = this.distractorCounts[a.id] || 0;
       const countB = this.distractorCounts[b.id] || 0;
@@ -266,41 +647,93 @@ const QuizScreen = {
     this.shuffle(poolSlice);
     const distractors = poolSlice.slice(0, 3);
 
-    // Ghi nhận tần suất xuất hiện của từ nhiễu
     distractors.forEach(d => {
       this.distractorCounts[d.id] = (this.distractorCounts[d.id] || 0) + 1;
     });
 
-    // 4. Chống lặp vị trí ô đúng trong lưới 2x2 (không bao giờ trùng với index câu trước)
     const availableIndices = [0, 1, 2, 3].filter(idx => idx !== this.lastCorrectIndex);
     const correctIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-    this.lastCorrectIndex = correctIndex;
 
-    // Xếp 3 từ nhiễu vào 3 vị trí còn lại sau khi xào trộn
     this.shuffle(distractors);
-    this.options = new Array(4);
-    this.options[correctIndex] = target;
+    const options = new Array(4);
+    options[correctIndex] = target;
 
     let distractorIdx = 0;
     for (let i = 0; i < 4; i++) {
       if (i !== correctIndex) {
-        this.options[i] = distractors[distractorIdx++];
+        options[i] = distractors[distractorIdx++];
       }
     }
 
-    // Tải trước đồng thời audio tiếng Việt và tiếng Anh để xóa độ trễ
-    this.preloadPromise = Promise.all([
-      this.fetchAudioUrl(this.currentPrompt, "vi"),
-      this.fetchAudioUrl(target.en, "en")
-    ]);
+    let preloadPromise = null;
+    if (AppState.voiceMode === "bilingual") {
+      preloadPromise = Promise.all([
+        this.fetchAudioUrl(prompt, "vi"),
+        this.fetchAudioUrl(target.en, "en")
+      ]);
+    } else {
+      preloadPromise = Promise.all([
+        this.fetchAudioUrl(`Where is the ${target.en}, Đậu?`, "en")
+      ]);
+    }
+
+    return {
+      target,
+      prompt,
+      correctIndex,
+      options,
+      preloadPromise
+    };
+  },
+
+  // Chuẩn bị trước câu hỏi đầu tiên ngay khi mở modal chủ đề từ trang chủ
+  prepareFirstQuestion(topic) {
+    if (topic && topic.id) {
+      this.selectedTopicId = topic.id;
+    }
+    this.questionQueue = [];
+    this.lastTargetWordId = null;
+    this.nextQuestionData = this.prepareQuestionData();
+  },
+
+  // Tạo câu hỏi mới (sử dụng pipeline pre-caching đón đầu)
+  nextQuestion() {
+    this.isLocked = false;
+
+    // Cập nhật giao diện tiến độ chặng và trạng thái mascot
+    this.updateStageProgress();
+    this.setMascot("normal");
+
+    const feedbackEl = document.getElementById("quiz-feedback");
+    if (feedbackEl) {
+      feedbackEl.innerHTML = `
+        <p class="text-xs sm:text-sm font-bold text-slate-500 italic truncate">
+          Đậu chạm vào hình con tìm được nhé! 👆
+        </p>
+      `;
+    }
+
+    let qData = this.nextQuestionData;
+    this.nextQuestionData = null;
+
+    if (!qData) {
+      qData = this.prepareQuestionData();
+    }
+    if (!qData) return;
+
+    this.currentWord = qData.target;
+    this.currentPrompt = qData.prompt;
+    this.lastCorrectIndex = qData.correctIndex;
+    this.options = qData.options;
+    this.preloadPromise = qData.preloadPromise;
 
     // Cập nhật câu hỏi text
     const questionTextEl = document.getElementById("quiz-question-text");
     if (questionTextEl) {
       if (AppState.voiceMode === "bilingual") {
-        questionTextEl.textContent = `${this.currentPrompt} "${target.en}"?`;
+        questionTextEl.textContent = `${this.currentPrompt} "${this.currentWord.en}"?`;
       } else {
-        questionTextEl.textContent = `Where is the "${target.en}", Đậu?`;
+        questionTextEl.textContent = `Where is the "${this.currentWord.en}", Đậu?`;
       }
     }
 
@@ -337,15 +770,20 @@ const QuizScreen = {
       }).join("");
     }
 
-    // Tự động phát âm thanh câu hỏi liền mạch
+    // PHÁT NGAY CÂU HỎI (Không cần setTimeout thừa)
+    this.playQuestionPrompt();
+
+    // ĐÓN ĐẦU ỐNG DẪN: Trong lúc bé đang nhìn 4 thẻ và tìm hình, nạp trước câu tiếp theo (N+1)!
     setTimeout(() => {
-      this.playQuestionPrompt();
-    }, 200);
+      if (!this.nextQuestionData) {
+        this.nextQuestionData = this.prepareQuestionData();
+      }
+    }, 600);
   },
 
   // Phát chuỗi âm thanh tiếng Việt -> tiếng Anh liền mạch không ngắt quãng
   playSeamlessQuestion(viUrl, enUrl) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       AppState.stopAudio();
       const player = AppState.audioPlayer;
       let switched = false;
@@ -391,15 +829,43 @@ const QuizScreen = {
         }
       };
 
-      player.onerror = cleanup;
+      player.onerror = (err) => {
+        cleanup();
+        if (reject) reject(err);
+      };
 
       player.src = viUrl;
       if (AppState.playbackRate) {
         player.playbackRate = AppState.playbackRate;
         player.defaultPlaybackRate = AppState.playbackRate;
       }
-      player.play().catch(cleanup);
+      player.play().catch((err) => {
+        cleanup();
+        if (reject) reject(err);
+      });
     });
+  },
+
+  // Gắn cơ chế mở khóa âm thanh dự phòng thông minh cho iPad Safari
+  attachAutoplayUnlockFallback() {
+    const speakBtn = document.getElementById("btn-quiz-speak");
+    if (speakBtn) {
+      speakBtn.classList.add("animate-bounce", "ring-4", "ring-amber-300");
+    }
+    const container = document.getElementById("screen-quiz");
+    if (container) {
+      const onUserTouch = () => {
+        container.removeEventListener("touchstart", onUserTouch);
+        container.removeEventListener("click", onUserTouch);
+        if (speakBtn) {
+          speakBtn.classList.remove("animate-bounce", "ring-4", "ring-amber-300");
+        }
+        this.getAudioContext();
+        this.playQuestionPrompt();
+      };
+      container.addEventListener("touchstart", onUserTouch, { once: true, passive: true });
+      container.addEventListener("click", onUserTouch, { once: true });
+    }
   },
 
   // Phát câu hỏi của cô giáo
@@ -409,14 +875,17 @@ const QuizScreen = {
     const speakIcon = document.getElementById("quiz-speak-icon");
     const speakBtn = document.getElementById("btn-quiz-speak");
     if (speakIcon) speakIcon.classList.add("audio-playing-pulse");
-    if (speakBtn) speakBtn.classList.add("pointer-events-none");
+    if (speakBtn) {
+      speakBtn.classList.remove("animate-bounce", "ring-4", "ring-amber-300");
+      speakBtn.classList.add("pointer-events-none");
+    }
 
     try {
+      let urls = null;
+      if (this.preloadPromise) {
+        urls = await this.preloadPromise;
+      }
       if (AppState.voiceMode === "bilingual") {
-        let urls = null;
-        if (this.preloadPromise) {
-          urls = await this.preloadPromise;
-        }
         const [viUrl, enUrl] = urls || [];
         if (viUrl && enUrl) {
           await this.playSeamlessQuestion(viUrl, enUrl);
@@ -425,10 +894,16 @@ const QuizScreen = {
           await AppState.speakText(this.currentWord.en, "en");
         }
       } else {
-        await AppState.speakText(`Where is the ${this.currentWord.en}, Đậu?`, "en");
+        const [enUrl] = urls || [];
+        if (enUrl) {
+          await this.playPreloadedAudio(enUrl);
+        } else {
+          await AppState.speakText(`Where is the ${this.currentWord.en}, Đậu?`, "en");
+        }
       }
     } catch (e) {
-      console.error("Lỗi phát câu hỏi song ngữ:", e);
+      console.warn("Autoplay / audio pending trên iPad Safari:", e);
+      this.attachAutoplayUnlockFallback();
     } finally {
       if (speakIcon) speakIcon.classList.remove("audio-playing-pulse");
       if (speakBtn) speakBtn.classList.remove("pointer-events-none");
@@ -445,7 +920,31 @@ const QuizScreen = {
     if (chosenId === this.currentWord.id) {
       // ĐÚNG Ô!
       this.isLocked = true;
-      AppState.addStars(1);
+      this.streak++;
+      const starsEarned = this.streak >= 3 ? 2 : 1;
+      AppState.addStars(starsEarned);
+      this.stageStars += starsEarned;
+
+      // 1. ÂM THANH "TING!" PHA LÊ TỨC THÌ 0MS BẰNG WEB AUDIO API NỘI BỘ
+      this.playVictoryChime();
+
+      // Hiệu ứng pháo giấy mini tung tỏa và ngôi sao bay lên header
+      this.triggerConfetti(cardEl);
+      this.triggerFlyingStar(cardEl);
+      this.setMascot("happy");
+
+      // Cập nhật huy hiệu Combo (khi streak >= 3)
+      const comboBadge = document.getElementById("quiz-combo-badge");
+      const comboText = document.getElementById("quiz-combo-text");
+      if (this.streak >= 3) {
+        if (comboBadge) {
+          comboBadge.classList.remove("hidden");
+          comboBadge.classList.add("flex");
+        }
+        if (comboText) {
+          comboText.textContent = `Combo ${this.streak}! (x2 ⭐)`;
+        }
+      }
 
       if (cardEl) {
         cardEl.className = "bg-emerald-50 rounded-[2rem] border-4 border-emerald-400 shadow-xl flex flex-col items-center justify-center p-3 text-center scale-105 transition-all overflow-hidden";
@@ -456,19 +955,41 @@ const QuizScreen = {
         : "Spot on, Đậu! Awesome!";
 
       if (feedbackEl) {
-        feedbackEl.innerHTML = `<span class="text-emerald-600 font-black text-xl animate-bounce">🎉 ${praiseMsg} +1 ⭐</span>`;
+        const bonusText = this.streak >= 3 ? " 🔥 COMBO X2!" : "";
+        feedbackEl.innerHTML = `<span class="text-emerald-600 font-black text-sm sm:text-base animate-bounce">🎉 ${praiseMsg} +${starsEarned} ⭐${bonusText}</span>`;
       }
 
-      // Phát tiếng khen ngợi của cô giáo
-      await AppState.speakText(praiseMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
+      // 2. PHÁT TIẾNG KHEN TỪ CACHE 0MS (Hoặc fallback nếu chưa nạp xong)
+      const praiseKey = `${AppState.voiceMode === "bilingual" ? "vi" : "en"}_${praiseMsg}`;
+      const cachedUrl = (this.ttsUrlCache && this.ttsUrlCache.get(praiseKey)) ||
+                        (this.preloadedPraises && this.preloadedPraises[praiseKey]);
+
+      if (cachedUrl) {
+        await this.playPreloadedAudio(cachedUrl);
+      } else {
+        await AppState.speakText(praiseMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
+      }
       
-      // Chuyển sang câu hỏi kế tiếp
+      // Chuyển sang câu hỏi kế tiếp sau khi cô khen xong hoặc trao Cúp Vàng sau 5 câu
       setTimeout(() => {
-        this.nextQuestion();
-      }, 900);
+        this.currentStageQuestion++;
+        if (this.currentStageQuestion >= this.stageTotalQuestions) {
+          this.showStageCompletionModal();
+        } else {
+          this.nextQuestion();
+        }
+      }, 500);
 
     } else {
-      // CHỌN NHẦM: Rung lắc & nhắc nhở thân thiện từ cô
+      // CHỌN NHẦM: Đứt chuỗi combo, rung lắc & nhắc nhở thân thiện từ cô
+      this.streak = 0;
+      const comboBadge = document.getElementById("quiz-combo-badge");
+      if (comboBadge) {
+        comboBadge.classList.add("hidden");
+        comboBadge.classList.remove("flex");
+      }
+      this.setMascot("encourage");
+
       if (cardEl) {
         cardEl.classList.add("shake-box", "border-rose-300");
         setTimeout(() => {
@@ -484,7 +1005,15 @@ const QuizScreen = {
         feedbackEl.innerHTML = `<span class="text-amber-800 font-bold text-sm sm:text-base">✨ ${wrongMsg}</span>`;
       }
 
-      await AppState.speakText(wrongMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
+      const wrongKey = `${AppState.voiceMode === "bilingual" ? "vi" : "en"}_${wrongMsg}`;
+      const cachedWrongUrl = (this.ttsUrlCache && this.ttsUrlCache.get(wrongKey)) ||
+                             (this.preloadedPraises && this.preloadedPraises[wrongKey]);
+
+      if (cachedWrongUrl) {
+        await this.playPreloadedAudio(cachedWrongUrl);
+      } else {
+        await AppState.speakText(wrongMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
+      }
     }
   }
 };

@@ -1,10 +1,14 @@
-// Màn hình Học từ vựng cho bé Đậu cùng Cô giáo
+// Màn hình Học từ vựng cho bé Đậu cùng Cô giáo (Thẻ lật 3D & Mạch học liền mạch)
 const LearnScreen = {
   currentIndex: 0,
   words: [],
   isSpeaking: false,
+  isFlipped: false,
+  isAdvancing: false,
+  advanceTimer: null,
   playSequence: 0,
   audioListenerAttached: false,
+  audioCtx: null,
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
@@ -20,6 +24,120 @@ const LearnScreen = {
     "Spot on, Đậu!"
   ],
 
+  // Khởi tạo AudioContext cho âm thanh Ting 0ms
+  getAudioContext() {
+    if (!this.audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.audioCtx = new AudioCtx();
+    }
+    if (this.audioCtx && this.audioCtx.state === "suspended") {
+      this.audioCtx.resume().catch(() => {});
+    }
+    return this.audioCtx;
+  },
+
+  // Phát tiếng chuông "Ting!" pha lê tức thì 0ms bằng Web Audio API
+  playVictoryChime() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Ting 1 (E6 - 1318.5 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(1318.5, now);
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      // Ting 2 (B6 - 1975.5 Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1975.5, now + 0.08);
+      gain2.gain.setValueAtTime(0.22, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.5);
+    } catch (e) {
+      console.warn("Chime error:", e);
+    }
+  },
+
+  // Pháo giấy Confetti mini bung tỏa tại nút hoặc thẻ
+  triggerConfetti(anchorEl) {
+    if (!anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const colors = ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#8b5cf6", "#facc15"];
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("div");
+      const size = 6 + Math.random() * 8;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      piece.className = "fixed rounded-sm pointer-events-none z-50";
+      piece.style.width = `${size}px`;
+      piece.style.height = `${size * (Math.random() > 0.5 ? 1 : 1.5)}px`;
+      piece.style.backgroundColor = color;
+      piece.style.left = `${rect.left + rect.width / 2}px`;
+      piece.style.top = `${rect.top + rect.height / 2}px`;
+      piece.style.transform = "translate(0, 0)";
+      piece.style.transition = "transform 0.65s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.65s ease-out";
+      document.body.appendChild(piece);
+
+      const angle = (i / count) * 2 * Math.PI + (Math.random() - 0.5) * 0.5;
+      const distance = 40 + Math.random() * 70;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance - 20;
+
+      requestAnimationFrame(() => {
+        piece.style.transform = `translate(${dx}px, ${dy}px) rotate(${Math.random() * 360}deg)`;
+        piece.style.opacity = "0";
+      });
+
+      setTimeout(() => piece.remove(), 700);
+    }
+  },
+
+  // Ngôi sao vàng bay vút từ thẻ lên thanh điểm số Header
+  triggerFlyingStar(anchorEl) {
+    if (!anchorEl) return;
+    const rect = anchorEl.getBoundingClientRect();
+    const targetEl = document.getElementById("star-count") || document.getElementById("btn-home");
+    const targetRect = targetEl ? targetEl.getBoundingClientRect() : { left: 80, top: 20 };
+
+    const star = document.createElement("div");
+    star.className = "fixed text-3xl pointer-events-none z-50 filter drop-shadow-[0_4px_10px_rgba(250,204,21,0.8)]";
+    star.textContent = "⭐";
+    star.style.left = `${rect.left + rect.width / 2 - 16}px`;
+    star.style.top = `${rect.top + rect.height / 2 - 16}px`;
+    star.style.transition = "transform 0.75s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.75s ease-in, scale 0.75s ease-in";
+    document.body.appendChild(star);
+
+    const dx = (targetRect.left + 10) - (rect.left + rect.width / 2 - 16);
+    const dy = (targetRect.top + 10) - (rect.top + rect.height / 2 - 16);
+
+    requestAnimationFrame(() => {
+      star.style.transform = `translate(${dx}px, ${dy}px) scale(0.6)`;
+      star.style.opacity = "0.9";
+    });
+
+    setTimeout(() => {
+      star.remove();
+      if (targetEl) {
+        targetEl.classList.remove("scale-125");
+        void targetEl.offsetWidth;
+        targetEl.classList.add("scale-125", "transition-transform");
+        setTimeout(() => targetEl.classList.remove("scale-125"), 250);
+      }
+    }, 750);
+  },
+
   // Bắt đầu màn hình học
   start() {
     if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length === 0) {
@@ -32,8 +150,15 @@ const LearnScreen = {
     this.words = AppState.currentTopic.words;
     this.currentIndex = 0;
     this.isSpeaking = false;
+    this.isFlipped = false;
+    this.isAdvancing = false;
+    if (this.advanceTimer) {
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
+    }
     this.playSequence = 0;
     AppState.stopAudio();
+    this.getAudioContext();
 
     if (!this.audioListenerAttached) {
       AppState.addAudioListener((isLoading, isPlaying) => {
@@ -59,9 +184,20 @@ const LearnScreen = {
       } else {
         heroBtn.classList.remove("pointer-events-none", "opacity-85");
         heroIcon.classList.remove("audio-playing-pulse");
-        heroText.textContent = "Chạm để nghe cô đọc";
+        heroText.textContent = this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc";
       }
     }
+  },
+
+  // Đếm số từ đã học trong chủ đề hiện tại
+  getLearnedCount() {
+    if (!AppState.currentTopic) return 0;
+    const key = `dau_learned_${AppState.currentTopic.id}`;
+    try {
+      const data = localStorage.getItem(key);
+      if (data) return JSON.parse(data).length;
+    } catch {}
+    return 0;
   },
 
   // Hiển thị giao diện màn hình học
@@ -72,72 +208,176 @@ const LearnScreen = {
     const word = this.words[this.currentIndex];
     const total = this.words.length;
     const topic = AppState.currentTopic;
+    const learnedCount = this.getLearnedCount();
 
     container.innerHTML = `
-      <div class="w-full h-full flex flex-col justify-between max-w-4xl mx-auto py-1 sm:py-2 relative">
-        <!-- Thanh điều hướng phụ -->
-        <div class="flex items-center justify-between w-full px-2">
-          <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3.5 sm:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+      <style>
+        .flashcard-3d-wrap {
+          perspective: 1000px;
+          -webkit-perspective: 1000px;
+        }
+        .flashcard-3d-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          transform-style: preserve-3d;
+          -webkit-transform-style: preserve-3d;
+          transition: transform 0.55s cubic-bezier(0.34, 1.25, 0.64, 1);
+        }
+        .flashcard-3d-inner.is-flipped {
+          transform: rotateY(180deg);
+          -webkit-transform: rotateY(180deg);
+        }
+        .flashcard-face {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          border-radius: 2.5rem;
+        }
+        .flashcard-front {
+          transform: rotateY(0deg);
+          -webkit-transform: rotateY(0deg);
+          z-index: 2;
+        }
+        .flashcard-back {
+          transform: rotateY(180deg);
+          -webkit-transform: rotateY(180deg);
+          z-index: 1;
+        }
+      </style>
+
+      <div class="w-full h-full flex flex-col justify-between max-w-4xl mx-auto py-1 sm:py-2 relative overflow-hidden">
+        
+        <!-- BANNER PHẢN HỒI KHEN NGỢI LIỀN MẠCH -->
+        <div id="learn-feedback-banner" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none transition-all"></div>
+
+        <!-- 1. THANH ĐIỀU HƯỚNG PHỤ & TIẾN ĐỘ CHỦ ĐỀ -->
+        <div class="flex items-center justify-between w-full px-2 gap-2 shrink-0">
+          <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3 sm:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
             <span aria-hidden="true">⬅️</span>
             <span>Chủ đề</span>
           </button>
 
-          <div class="px-3.5 sm:px-4 py-1.5 rounded-full bg-amber-100/80 text-amber-900 font-extrabold text-xs sm:text-sm border border-amber-200 flex items-center gap-1.5 sm:gap-2">
-            <span aria-hidden="true">${topic.icon}</span>
-            <span>${topic.title}</span>
-            <span class="text-amber-600 font-semibold">• Từ ${this.currentIndex + 1}/${total}</span>
+          <!-- Tiến độ từ vựng trong chủ đề -->
+          <div class="flex flex-col items-center flex-1 max-w-xs mx-auto">
+            <div class="flex items-center gap-1.5 text-xs sm:text-sm font-black text-amber-900 truncate">
+              <span aria-hidden="true">${topic.icon}</span>
+              <span class="truncate">${topic.title}</span>
+              <span class="text-amber-600 font-extrabold">• Từ ${this.currentIndex + 1}/${total}</span>
+            </div>
+            <!-- Thanh progress bar nhỏ gọn -->
+            <div class="w-full bg-slate-200/80 rounded-full h-2 sm:h-2.5 mt-1 overflow-hidden p-0.5 border border-slate-300/40">
+              <div class="bg-gradient-to-r from-amber-400 to-yellow-400 h-full rounded-full transition-all duration-300 shadow-sm" style="width: ${((this.currentIndex + 1) / total) * 100}%"></div>
+            </div>
           </div>
 
-          <div class="w-16 sm:w-20"></div>
+          <!-- Huy hiệu từ đã thuộc -->
+          <div class="px-2.5 sm:px-3 py-1.5 rounded-2xl bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200 flex items-center gap-1 shrink-0" title="Đã học ${learnedCount} trên tổng số ${total} từ">
+            <span aria-hidden="true">✅</span>
+            <span>${learnedCount}/${total}</span>
+          </div>
         </div>
 
-        <!-- THẺ FLASHCARD TRUNG TÂM KHỔ LỚN -->
-        <div class="flex-1 flex flex-col items-center justify-center my-1 sm:my-2 w-full">
-          <div onclick="LearnScreen.playPrompt()" class="cursor-pointer group relative bg-white rounded-[2.5rem] p-4 sm:p-5 w-full max-w-md shadow-lg border-4 border-amber-200 flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.01] active:scale-95 text-center">
-            
-            <!-- Nút loa nhỏ góc trên thẻ -->
-            <button onclick="event.stopPropagation(); LearnScreen.playPrompt()" aria-label="Nghe cô phát âm từ ${word.en}" class="absolute top-4 right-4 w-10 h-10 rounded-xl bg-amber-50 group-hover:bg-amber-100 text-amber-700 flex items-center justify-center text-xl shadow-sm transition-all cursor-pointer">
-              🔊
-            </button>
+        <!-- 2. THẺ FLASHCARD 3D TƯƠNG TÁC (3D FLIP CARD) -->
+        <div class="flex-1 flex flex-col items-center justify-center my-1 sm:my-2 w-full px-2">
+          <div id="flashcard-wrap" class="flashcard-3d-wrap w-full max-w-xs sm:max-w-md h-[340px] sm:h-[390px] mx-auto cursor-pointer select-none">
+            <div id="flashcard-inner" class="flashcard-3d-inner ${this.isFlipped ? 'is-flipped' : ''}" onclick="LearnScreen.toggleFlip()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();LearnScreen.toggleFlip();}" aria-label="Thẻ học từ vựng ${word.en}">
+              
+              <!-- MẶT TRƯỚC (ĐOÁN HÌNH - BẬT PHẢN XẠ NHỚ TỪ) -->
+              <div class="flashcard-face flashcard-front bg-white rounded-[2.5rem] p-4 sm:p-5 shadow-xl border-4 border-amber-200 hover:border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
+                <!-- Tiêu đề gợi mở mặt trước -->
+                <div class="w-full flex items-center justify-between px-2">
+                  <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-black text-xs flex items-center gap-1">
+                    <span>❓</span>
+                    <span>Đậu đoán xem gì nào?</span>
+                  </span>
+                  <span class="w-8 h-8 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center text-sm shadow-inner" title="Chạm để lật">🔄</span>
+                </div>
 
-            <!-- Khung hình ảnh thật cỡ lớn hoặc Emoji trực quan -->
-            ${word.image_url ? `
-              <div class="w-40 h-40 sm:w-52 sm:h-52 my-1 rounded-2xl overflow-hidden shadow-md border-3 border-white bg-white p-1 flex items-center justify-center relative">
-                <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md" aria-hidden="true">
-                  ${word.visual}
+                <!-- Khung hình ảnh thật cỡ lớn sắc nét -->
+                ${word.image_url ? `
+                  <div class="w-44 h-44 sm:w-56 sm:h-56 my-auto rounded-3xl overflow-hidden shadow-inner border border-slate-100 bg-slate-50/50 p-2 flex items-center justify-center relative">
+                    <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-2xl transition-transform duration-300 hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md" aria-hidden="true">
+                      ${word.visual}
+                    </div>
+                  </div>
+                ` : `
+                  <div class="w-44 h-44 sm:w-56 sm:h-56 my-auto flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md hover:scale-110 transition-transform" aria-hidden="true">
+                    ${word.visual}
+                  </div>
+                `}
+
+                <!-- Nhãn gợi ý chạm tay lật thẻ & nghe đọc -->
+                <div class="py-1.5 px-4 rounded-full bg-amber-50 text-amber-800 font-black text-xs sm:text-sm border border-amber-200/80 shadow-sm animate-pulse flex items-center gap-1.5">
+                  <span>👆</span>
+                  <span>Chạm vào hình để xem từ & nghe cô đọc!</span>
                 </div>
               </div>
-            ` : `
-              <div class="w-40 h-40 sm:w-52 sm:h-52 my-1 flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md group-hover:scale-110 transition-transform" aria-hidden="true">
-                ${word.visual}
+
+              <!-- MẶT SAU (TỪ VỰNG TIẾNG ANH & NGHĨA TIẾNG VIỆT) -->
+              <div class="flashcard-face flashcard-back bg-gradient-to-b from-amber-50/70 via-white to-amber-50/40 rounded-[2.5rem] p-4 sm:p-5 shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
+                <!-- Tiêu đề mặt sau -->
+                <div class="w-full flex items-center justify-between px-2">
+                  <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 font-black text-xs flex items-center gap-1">
+                    <span>✨</span>
+                    <span>Kết quả</span>
+                  </span>
+                  <!-- Nút loa nghe lại ở mặt sau -->
+                  <button onclick="event.stopPropagation(); LearnScreen.playPrompt()" aria-label="Nghe cô đọc lại" class="w-9 h-9 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-900 flex items-center justify-center text-lg shadow-sm active:scale-90 transition-all cursor-pointer">
+                    🔊
+                  </button>
+                </div>
+
+                <!-- Hình ảnh thu gọn -->
+                ${word.image_url ? `
+                  <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-sm border border-amber-100 bg-white p-1 flex items-center justify-center relative mt-1">
+                    <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-xl" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                    <div style="display:none;" class="w-full h-full items-center justify-center text-5xl sm:text-6xl filter drop-shadow-sm" aria-hidden="true">
+                      ${word.visual}
+                    </div>
+                  </div>
+                ` : `
+                  <div class="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center text-5xl sm:text-6xl filter drop-shadow-sm mt-1" aria-hidden="true">
+                    ${word.visual}
+                  </div>
+                `}
+
+                <!-- Từ tiếng Anh in đậm sắc nét cỡ lớn -->
+                <div class="my-auto flex flex-col items-center">
+                  <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-800 tracking-tight capitalize">
+                    ${word.en}
+                  </h2>
+                  <p class="text-lg sm:text-xl font-black text-amber-700 mt-1">
+                    ${word.vi}
+                  </p>
+                </div>
+
+                <!-- Lời nhắc chạm để lật lại -->
+                <div class="text-xs font-bold text-slate-400">
+                  👆 Chạm thẻ để lật lại ảnh
+                </div>
               </div>
-            `}
 
-            <!-- Từ tiếng Anh in đậm sắc nét -->
-            <h2 class="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mt-1 capitalize">
-              ${word.en}
-            </h2>
-
-            <!-- Nghĩa tiếng Việt -->
-            <p class="text-lg sm:text-xl font-bold text-slate-500">
-              ${word.vi}
-            </p>
+            </div>
           </div>
 
           <!-- NÚT HÀNH ĐỘNG CHÍNH (HERO ACTION): BÉ CHẠM ĐỂ NGHE CÔ ĐỌC -->
-          <div class="w-full flex justify-center mt-3 sm:mt-4">
-            <button id="btn-hero-speak" onclick="LearnScreen.playPrompt()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full max-w-sm py-3.5 sm:py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-3 transition-all cursor-pointer">
+          <div class="w-full flex justify-center mt-2.5 sm:mt-3">
+            <button id="btn-hero-speak" onclick="LearnScreen.handleHeroSpeak()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full max-w-sm py-3.5 sm:py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-3 transition-all cursor-pointer">
               <span id="hero-speak-icon" class="text-2xl sm:text-3xl" aria-hidden="true">🔊</span>
-              <span id="hero-speak-text">Chạm để nghe cô đọc</span>
+              <span id="hero-speak-text">${this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc"}</span>
             </button>
           </div>
         </div>
 
-        <!-- KHU VỰC ĐIỀU KHIỂN DƯỚI ĐÁY: PHỤ HUYNH XÁC NHẬN & CHUYỂN TỪ -->
-        <div class="flex flex-col items-center gap-2.5 pb-1 w-full">
+        <!-- 3. KHU VỰC ĐIỀU KHIỂN DƯỚI ĐÁY: PHỤ HUYNH XÁC NHẬN & CHUYỂN TỪ -->
+        <div class="flex flex-col items-center gap-2 pb-1 w-full shrink-0">
           <!-- Nút phụ huynh xác nhận bé đã đọc chuẩn để thưởng sao -->
-          <button onclick="LearnScreen.confirmCorrect()" aria-label="Bố mẹ xác nhận bé đọc chuẩn để thưởng sao" class="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base shadow-md shadow-emerald-200/50 flex items-center gap-2 border-2 border-white transition-all cursor-pointer">
+          <button id="btn-confirm-correct" onclick="LearnScreen.confirmCorrect()" aria-label="Bố mẹ xác nhận bé đọc chuẩn để thưởng sao" class="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base shadow-md shadow-emerald-200/50 flex items-center gap-2 border-2 border-white transition-all cursor-pointer">
             <span aria-hidden="true">✅</span>
             <span>Đậu đọc chuẩn rồi (+1 ⭐)</span>
           </button>
@@ -156,20 +396,45 @@ const LearnScreen = {
           </div>
         </div>
 
-        <!-- Lớp phủ thông báo Khen thưởng & Hiệu ứng -->
-        <div id="praise-overlay" class="hidden absolute inset-0 z-40 bg-white/90 backdrop-blur-sm rounded-[3rem] flex flex-col items-center justify-center p-6 sm:p-8 text-center animate-in fade-in zoom-in duration-200" role="dialog" aria-modal="true" aria-labelledby="praise-title">
-          <div id="praise-emoji" class="text-7xl sm:text-8xl mb-3 animate-bounce" aria-hidden="true">🌟</div>
-          <h2 id="praise-title" class="text-3xl sm:text-5xl font-black text-amber-500 mb-2"></h2>
-          <p id="praise-subtitle" class="text-xl sm:text-2xl font-bold text-slate-600 mb-6">Cô tặng Đậu +1 ⭐ nhé!</p>
-          <button onclick="LearnScreen.dismissPraise()" aria-label="Học từ vựng tiếp theo" class="px-7 sm:px-8 py-3 sm:py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-500 text-white font-black text-lg sm:text-xl shadow-lg active:scale-95 transition-all cursor-pointer">
-            Học từ tiếp theo 🚀
-          </button>
-        </div>
       </div>
     `;
   },
 
-  // Phát từ tiếng Anh và câu nhắc khi chạm vào thẻ
+  // Lật thẻ 3D qua lại
+  toggleFlip(forceState) {
+    const inner = document.getElementById("flashcard-inner");
+    if (!inner) return;
+
+    if (typeof forceState === "boolean") {
+      this.isFlipped = forceState;
+    } else {
+      this.isFlipped = !this.isFlipped;
+    }
+
+    if (this.isFlipped) {
+      inner.classList.add("is-flipped");
+      // Tự động phát âm thanh khi lật sang mặt sau
+      this.playPrompt();
+    } else {
+      inner.classList.remove("is-flipped");
+    }
+
+    const heroText = document.getElementById("hero-speak-text");
+    if (heroText && !this.isSpeaking) {
+      heroText.textContent = this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc";
+    }
+  },
+
+  // Chạm vào nút Hero Speak
+  handleHeroSpeak() {
+    if (!this.isFlipped) {
+      this.toggleFlip(true);
+    } else {
+      this.playPrompt();
+    }
+  },
+
+  // Phát từ tiếng Anh và câu nhắc của cô
   async playPrompt() {
     const currentSeq = ++this.playSequence;
     this.isSpeaking = true;
@@ -192,26 +457,55 @@ const LearnScreen = {
     }
   },
 
-  // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn
+  // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn (Mạch học liền mạch)
   async confirmCorrect() {
+    if (this.isAdvancing) return;
     const word = this.words[this.currentIndex];
     if (!word) return;
+
+    this.isAdvancing = true;
 
     // Ngắt âm thanh đang đọc từ dở nếu có
     AppState.stopAudio();
     this.isSpeaking = false;
 
-    // Cộng sao & lưu tiến trình
+    // 1. Cộng sao & lưu tiến trình từ đã học
     AppState.addStars(1);
     this.saveWordLearned(word.id);
 
-    // Chọn ngẫu nhiên câu khen ngợi của cô
+    // 2. Âm thanh "Ting!" pha lê tức thì 0ms bằng Web Audio API
+    this.playVictoryChime();
+
+    // 3. Hiệu ứng pháo giấy Confetti mini & ngôi sao vàng bay lên thanh điểm số
+    const anchorEl = document.getElementById("btn-confirm-correct") || document.getElementById("flashcard-wrap");
+    this.triggerConfetti(anchorEl);
+    this.triggerFlyingStar(anchorEl);
+
+    // 4. Hiển thị lời khen ngắn gọn ngay trên thẻ / banner
     const isBilingual = AppState.voiceMode === "bilingual";
     const praises = isBilingual ? this.VI_PRAISES : this.EN_PRAISES;
     const praise = praises[Math.floor(Math.random() * praises.length)];
 
-    this.showPraise(praise);
+    const feedbackBanner = document.getElementById("learn-feedback-banner");
+    if (feedbackBanner) {
+      feedbackBanner.innerHTML = `
+        <div class="px-5 py-2 rounded-full bg-emerald-500 text-white font-black text-sm sm:text-base shadow-xl border-2 border-white animate-bounce flex items-center gap-2">
+          <span>🎉</span>
+          <span>${praise} (+1 ⭐)</span>
+        </div>
+      `;
+      feedbackBanner.classList.remove("hidden");
+    }
+
+    // 5. Phát giọng cô khen
     await AppState.speakText(praise, isBilingual ? "vi" : "en");
+
+    // 6. Tự động chuyển mượt sang từ tiếp theo sau 1.2s (Mạch học không gián đoạn)
+    this.advanceTimer = setTimeout(() => {
+      this.isAdvancing = false;
+      if (feedbackBanner) feedbackBanner.classList.add("hidden");
+      this.nextWord();
+    }, 1200);
   },
 
   // Lưu từ đã học vào localStorage
@@ -229,26 +523,17 @@ const LearnScreen = {
     }
   },
 
-  // Hiển thị popup khen ngợi
-  showPraise(text) {
-    const overlay = document.getElementById("praise-overlay");
-    const title = document.getElementById("praise-title");
-    if (overlay && title) {
-      title.textContent = text;
-      overlay.classList.remove("hidden");
-    }
-  },
-
-  dismissPraise() {
-    const overlay = document.getElementById("praise-overlay");
-    if (overlay) overlay.classList.add("hidden");
-    this.nextWord();
-  },
-
   // Chuyển sang từ kế tiếp
   nextWord() {
+    if (this.advanceTimer) {
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
+    }
+    this.isAdvancing = false;
     AppState.stopAudio();
     this.isSpeaking = false;
+    this.isFlipped = false; // Luôn hiển thị mặt trước để bé quan sát hình trước
+
     if (this.currentIndex < this.words.length - 1) {
       this.currentIndex++;
       this.render();
@@ -261,8 +546,15 @@ const LearnScreen = {
 
   // Quay lại từ trước
   prevWord() {
+    if (this.advanceTimer) {
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
+    }
+    this.isAdvancing = false;
     AppState.stopAudio();
     this.isSpeaking = false;
+    this.isFlipped = false; // Luôn hiển thị mặt trước khi lùi
+
     if (this.currentIndex > 0) {
       this.currentIndex--;
       this.render();
