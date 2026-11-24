@@ -7,6 +7,9 @@ const QuizScreen = {
   preloadPromise: null,
   lastQuestionPrompt: "",
   lastPraise: "",
+  lastEnPraise: "",
+  lastEncouragement: "",
+  lastEnEncouragement: "",
   selectedTopicId: "all",
   questionQueue: [],
   lastTargetWordId: null,
@@ -31,7 +34,7 @@ const QuizScreen = {
     "Đậu yêu ơi, đâu là hình"
   ],
 
-  // 6 câu khen ngợi ấm áp từ cô giáo
+  // 6 câu khen ngợi ấm áp từ cô giáo khi chọn đúng
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, đúng rồi nè!",
     "Tuyệt vời, cô thưởng Đậu một ngôi sao nhé!",
@@ -39,6 +42,29 @@ const QuizScreen = {
     "Hoan hô, Đậu của cô giỏi quá!",
     "Đậu siêu quá, cô thưởng một ngôi sao nhé!",
     "Xuất sắc lắm Đậu ơi, mười điểm luôn!"
+  ],
+
+  // Câu khen tiếng Anh
+  EN_PRAISES: [
+    "Spot on, Đậu! Awesome!",
+    "Great job, Đậu!",
+    "Super, you found it, Đậu!",
+    "Brilliant, Đậu! Well done!"
+  ],
+
+  // 4 câu động viên nhẹ nhàng ấm áp khi chọn nhầm
+  VI_ENCOURAGEMENTS: [
+    "Chưa đúng rồi Đậu ơi, thử lại nhé!",
+    "Gần đúng rồi, bé nhìn kỹ lại nào!",
+    "Đậu thử lại cùng cô nhé, cố lên!",
+    "Không sao đâu, Đậu chọn lại xem nào!"
+  ],
+
+  // Câu động viên tiếng Anh
+  EN_ENCOURAGEMENTS: [
+    "Not quite, try again Đậu!",
+    "Almost there, look closely Đậu!",
+    "Give it another try, Đậu!"
   ],
 
   // Khởi tạo AudioContext đơn vị (Singleton) sẵn sàng phát tức thì 0ms
@@ -91,35 +117,98 @@ const QuizScreen = {
     }
   },
 
-  // Tải trước 6 câu khen ngợi cố định một cách nhẹ nhàng xen kẽ
-  preloadPraisesStaggered() {
-    this.preloadedPraises = this.preloadedPraises || {};
-    const viList = this.VI_PRAISES || [];
-    const enList = [
-      "Spot on, Đậu! Awesome!",
-      "Great job, Đậu!",
-      "Super, you found it, Đậu!"
-    ];
-    const allPraises = [
-      ...viList.map(text => ({ text, lang: "vi" })),
-      ...enList.map(text => ({ text, lang: "en" }))
-    ];
+  // Hiệu ứng âm thanh hợp âm chiến thắng khi đạt Combo Streak >= 3 (C5 - E5 - G5)
+  playComboChime() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
 
-    allPraises.forEach((item, index) => {
+      const now = ctx.currentTime;
+      // Hợp âm 3 nốt vút cao liên tiếp vui nhộn: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz)
+      const notes = [
+        { freq: 523.25, time: now + 0.05, duration: 0.3, gain: 0.22 },
+        { freq: 659.25, time: now + 0.14, duration: 0.32, gain: 0.25 },
+        { freq: 783.99, time: now + 0.24, duration: 0.45, gain: 0.30 }
+      ];
+
+      notes.forEach(note => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(note.freq, note.time);
+
+        gain.gain.setValueAtTime(0.001, note.time);
+        gain.gain.exponentialRampToValueAtTime(note.gain, note.time + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, note.time + note.duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(note.time);
+        osc.stop(note.time + note.duration + 0.05);
+      });
+    } catch (e) {
+      console.warn("Lỗi phát combo chime:", e);
+    }
+  },
+
+  // Hiệu ứng âm thanh báo chọn nhầm nhẹ nhàng, trầm ấm vui tai 0ms (Web Audio API)
+  playEncourageSound() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      // 2 nốt trầm ấm êm tai (220Hz -> 174.6Hz), không chói tai cho bé 5 tuổi
+      const notes = [
+        { freq: 220.0, time: now, duration: 0.16, gain: 0.2 },
+        { freq: 174.61, time: now + 0.11, duration: 0.28, gain: 0.25 }
+      ];
+
+      notes.forEach(note => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "triangle"; // Dạng sóng triangle êm dịu, ấm áp
+        osc.frequency.setValueAtTime(note.freq, note.time);
+        osc.frequency.exponentialRampToValueAtTime(note.freq * 0.9, note.time + note.duration);
+
+        gain.gain.setValueAtTime(0.001, note.time);
+        gain.gain.exponentialRampToValueAtTime(note.gain, note.time + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, note.time + note.duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(note.time);
+        osc.stop(note.time + note.duration + 0.05);
+      });
+    } catch (e) {
+      console.warn("Lỗi phát encourage sound:", e);
+    }
+  },
+
+  // Nạp trước toàn bộ câu khen ngợi (khi đúng) VÀ câu động viên (khi sai) vào RAM (ttsUrlCache)
+  preloadFeedbackAudio() {
+    const items = [];
+    this.VI_PRAISES.forEach(text => items.push({ text, lang: "vi" }));
+    this.VI_ENCOURAGEMENTS.forEach(text => items.push({ text, lang: "vi" }));
+    this.EN_PRAISES.forEach(text => items.push({ text, lang: "en" }));
+    this.EN_ENCOURAGEMENTS.forEach(text => items.push({ text, lang: "en" }));
+
+    // Tải ngầm xen kẽ nhanh (mỗi 180ms một câu) để sớm có sẵn trong RAM mà không nghẽn mạng
+    items.forEach((item, index) => {
       setTimeout(() => {
         const key = `${item.lang}_${item.text}`;
-        if (!this.preloadedPraises[key]) {
-          this.fetchAudioUrl(item.text, item.lang).then(url => {
-            if (url) {
-              this.preloadedPraises[key] = url;
-            }
-          });
+        if (!this.ttsUrlCache || !this.ttsUrlCache.has(key)) {
+          this.fetchAudioUrl(item.text, item.lang);
         }
-      }, 400 + index * 500); // Xen kẽ mỗi 500ms không làm nghẽn mạng
+      }, 100 + index * 180);
     });
   },
 
-  // Phát file audio đã được nạp sẵn từ cache
+  // Phát file audio đã được nạp sẵn từ cache một cách an toàn và giải phóng listener
   playPreloadedAudio(url) {
     return new Promise((resolve) => {
       if (!url) {
@@ -129,9 +218,19 @@ const QuizScreen = {
       try {
         AppState.stopAudio();
         const player = AppState.audioPlayer;
+        if (!player) {
+          resolve();
+          return;
+        }
+
+        player.ontimeupdate = null; // Xóa sạch listener cũ tránh xung đột
         AppState.currentAudioResolve = resolve;
 
+        let finished = false;
         const onFinish = () => {
+          if (finished) return;
+          finished = true;
+          player.ontimeupdate = null;
           player.onended = null;
           player.onerror = null;
           if (AppState.currentAudioResolve === resolve) {
@@ -166,6 +265,27 @@ const QuizScreen = {
     const list = this.VI_PRAISES.filter(p => p !== this.lastPraise);
     const selected = list[Math.floor(Math.random() * list.length)];
     this.lastPraise = selected;
+    return selected;
+  },
+
+  getRandomEnPraise() {
+    const list = this.EN_PRAISES.filter(p => p !== this.lastEnPraise);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastEnPraise = selected;
+    return selected;
+  },
+
+  getRandomEncouragement() {
+    const list = this.VI_ENCOURAGEMENTS.filter(e => e !== this.lastEncouragement);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastEncouragement = selected;
+    return selected;
+  },
+
+  getRandomEnEncouragement() {
+    const list = this.EN_ENCOURAGEMENTS.filter(e => e !== this.lastEnEncouragement);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastEnEncouragement = selected;
     return selected;
   },
 
@@ -245,7 +365,7 @@ const QuizScreen = {
   // Bắt đầu màn hình Quiz
   start() {
     this.getAudioContext();
-    this.preloadPraisesStaggered();
+    this.preloadFeedbackAudio();
     this.currentStageQuestion = 0;
     this.stageStars = 0;
     this.streak = 0;
@@ -618,6 +738,7 @@ const QuizScreen = {
         const a = new Audio();
         a.preload = "auto";
         a.src = data.url;
+        try { a.load(); } catch (e) {}
         return data.url;
       }
       return null;
@@ -910,7 +1031,7 @@ const QuizScreen = {
     }
   },
 
-  // Xử lý khi bé chạm chọn ô
+  // Xử lý khi bé chạm chọn ô (Âm thanh 0ms cho cả Đúng & Sai + Khóa chống bấm đè)
   async handleSelect(chosenId, cardElementId) {
     if (this.isLocked) return;
 
@@ -918,7 +1039,7 @@ const QuizScreen = {
     const feedbackEl = document.getElementById("quiz-feedback");
 
     if (chosenId === this.currentWord.id) {
-      // ĐÚNG Ô!
+      // ĐÚNG Ô! KHÓA TỨC THÌ ĐỂ CHỐNG BẤM ĐÈ
       this.isLocked = true;
       this.streak++;
       const starsEarned = this.streak >= 3 ? 2 : 1;
@@ -933,10 +1054,11 @@ const QuizScreen = {
       this.triggerFlyingStar(cardEl);
       this.setMascot("happy");
 
-      // Cập nhật huy hiệu Combo (khi streak >= 3)
+      // Cập nhật huy hiệu Combo & phát hợp âm chiến thắng (khi streak >= 3)
       const comboBadge = document.getElementById("quiz-combo-badge");
       const comboText = document.getElementById("quiz-combo-text");
       if (this.streak >= 3) {
+        this.playComboChime();
         if (comboBadge) {
           comboBadge.classList.remove("hidden");
           comboBadge.classList.add("flex");
@@ -952,14 +1074,15 @@ const QuizScreen = {
 
       const praiseMsg = AppState.voiceMode === "bilingual"
         ? this.getRandomPraise()
-        : "Spot on, Đậu! Awesome!";
+        : this.getRandomEnPraise();
 
       if (feedbackEl) {
         const bonusText = this.streak >= 3 ? " 🔥 COMBO X2!" : "";
         feedbackEl.innerHTML = `<span class="text-emerald-600 font-black text-sm sm:text-base animate-bounce">🎉 ${praiseMsg} +${starsEarned} ⭐${bonusText}</span>`;
       }
 
-      // 2. PHÁT TIẾNG KHEN TỪ CACHE 0MS (Hoặc fallback nếu chưa nạp xong)
+      // 2. PHÁT TIẾNG KHEN TỪ CACHE 0MS
+      const startTime = Date.now();
       const praiseKey = `${AppState.voiceMode === "bilingual" ? "vi" : "en"}_${praiseMsg}`;
       const cachedUrl = (this.ttsUrlCache && this.ttsUrlCache.get(praiseKey)) ||
                         (this.preloadedPraises && this.preloadedPraises[praiseKey]);
@@ -970,7 +1093,10 @@ const QuizScreen = {
         await AppState.speakText(praiseMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
       }
       
-      // Chuyển sang câu hỏi kế tiếp sau khi cô khen xong hoặc trao Cúp Vàng sau 5 câu
+      // 3. CHỈ CHUYỂN CÂU HỎI SAU KHI CÔ KHEN XONG (TỐI THIỂU 1.5S) ĐỂ KHÔNG BỊ CẮT LỜI CÔ
+      const elapsed = Date.now() - startTime;
+      const remainingWait = Math.max(0, 1500 - elapsed);
+
       setTimeout(() => {
         this.currentStageQuestion++;
         if (this.currentStageQuestion >= this.stageTotalQuestions) {
@@ -978,11 +1104,16 @@ const QuizScreen = {
         } else {
           this.nextQuestion();
         }
-      }, 500);
+      }, remainingWait);
 
     } else {
-      // CHỌN NHẦM: Đứt chuỗi combo, rung lắc & nhắc nhở thân thiện từ cô
+      // CHỌN NHẦM: KHÓA TẠM THỜI ĐỂ CHỐNG BẤM LIÊN TỤC GÂY CÂM TIẾNG
+      this.isLocked = true;
       this.streak = 0;
+
+      // 1. ÂM BÁO TRẦM ÊM TAI 0MS (WEB AUDIO API)
+      this.playEncourageSound();
+
       const comboBadge = document.getElementById("quiz-combo-badge");
       if (comboBadge) {
         comboBadge.classList.add("hidden");
@@ -998,13 +1129,14 @@ const QuizScreen = {
       }
 
       const wrongMsg = AppState.voiceMode === "bilingual"
-        ? "Chưa đúng rồi Đậu ơi, Đậu thử chọn lại cùng cô nhé!"
-        : "Not quite, try again Đậu!";
+        ? this.getRandomEncouragement()
+        : this.getRandomEnEncouragement();
 
       if (feedbackEl) {
         feedbackEl.innerHTML = `<span class="text-amber-800 font-bold text-sm sm:text-base">✨ ${wrongMsg}</span>`;
       }
 
+      // 2. PHÁT TIẾNG ĐỘNG VIÊN TỪ CACHE 0MS
       const wrongKey = `${AppState.voiceMode === "bilingual" ? "vi" : "en"}_${wrongMsg}`;
       const cachedWrongUrl = (this.ttsUrlCache && this.ttsUrlCache.get(wrongKey)) ||
                              (this.preloadedPraises && this.preloadedPraises[wrongKey]);
@@ -1014,6 +1146,9 @@ const QuizScreen = {
       } else {
         await AppState.speakText(wrongMsg, AppState.voiceMode === "bilingual" ? "vi" : "en");
       }
+
+      // MỞ KHÓA LẠI SAU KHI CÔ ĐỘNG VIÊN XONG ĐỂ BÉ CHỌN TIẾP
+      this.isLocked = false;
     }
   }
 };

@@ -419,6 +419,111 @@
           "vi": "xe 3 bánh",
           "visual": "🚲",
           "image_url": "/static/images/tricycle.jpg"
+        },
+        {
+          "id": "cement_mixer",
+          "en": "cement mixer",
+          "vi": "xe trộn bê tông",
+          "visual": "🚛",
+          "image_url": "/static/images/cement_mixer.jpg"
+        },
+        {
+          "id": "road_roller",
+          "en": "road roller",
+          "vi": "xe lu đường",
+          "visual": "🚜",
+          "image_url": "/static/images/road_roller.jpg"
+        },
+        {
+          "id": "container_truck",
+          "en": "container truck",
+          "vi": "xe đầu kéo container",
+          "visual": "🚛",
+          "image_url": "/static/images/container_truck.jpg"
+        },
+        {
+          "id": "tow_truck",
+          "en": "tow truck",
+          "vi": "xe cứu hộ giao thông",
+          "visual": "🛻",
+          "image_url": "/static/images/tow_truck.jpg"
+        },
+        {
+          "id": "forklift",
+          "en": "forklift",
+          "vi": "xe nâng hàng",
+          "visual": "🏗️",
+          "image_url": "/static/images/forklift.jpg"
+        },
+        {
+          "id": "tanker_truck",
+          "en": "tanker truck",
+          "vi": "xe bồn chở xăng",
+          "visual": "🚛",
+          "image_url": "/static/images/tanker_truck.jpg"
+        },
+        {
+          "id": "pickup_truck",
+          "en": "pickup truck",
+          "vi": "xe bán tải",
+          "visual": "🛻",
+          "image_url": "/static/images/pickup_truck.jpg"
+        },
+        {
+          "id": "cyclo",
+          "en": "cyclo",
+          "vi": "xe xích lô",
+          "visual": "🚲",
+          "image_url": "/static/images/cyclo.jpg"
+        },
+        {
+          "id": "hot_air_balloon",
+          "en": "hot air balloon",
+          "vi": "khinh khí cầu",
+          "visual": "🎈",
+          "image_url": "/static/images/hot_air_balloon.jpg"
+        },
+        {
+          "id": "submarine",
+          "en": "submarine",
+          "vi": "tàu ngầm",
+          "visual": "🌊",
+          "image_url": "/static/images/submarine.jpg"
+        },
+        {
+          "id": "bullet_train",
+          "en": "bullet train",
+          "vi": "tàu cao tốc",
+          "visual": "🚅",
+          "image_url": "/static/images/bullet_train.jpg"
+        },
+        {
+          "id": "rocket",
+          "en": "rocket",
+          "vi": "tên lửa",
+          "visual": "🚀",
+          "image_url": "/static/images/rocket.jpg"
+        },
+        {
+          "id": "speedboat",
+          "en": "speedboat",
+          "vi": "ca nô cao tốc",
+          "visual": "🚤",
+          "image_url": "/static/images/speedboat.jpg"
+        },
+        {
+          "id": "jet_ski",
+          "en": "jet ski",
+          "vi": "mô tô nước",
+          "visual": "🌊",
+          "image_url": "/static/images/jet_ski.jpg"
+        },
+        {
+          "id": "carriage",
+          "en": "carriage",
+          "vi": "xe ngựa kéo",
+          "visual": "🐴",
+          "image_url": "/static/images/carriage.jpg"
         }
       ]
     },

@@ -31,6 +31,7 @@ const RacerScreen = {
   preloadedPraises: {},
   nextWaveData: null,
   webAudioCtx: null,
+  isGarageAtStart: true,
 
   // Các mẫu câu hỏi sinh động của cô giáo xoay vòng ngẫu nhiên
   QUESTION_TEMPLATES: [
@@ -881,7 +882,7 @@ const RacerScreen = {
 
         <!-- BỘ ĐIỀU KHIỂN NÚT BẤM DƯỚI ĐÁY CHUẨN GAME THIẾU NHI 3D -->
         <div class="flex items-center justify-between px-2 sm:px-6 pb-1">
-          <button onclick="RacerScreen.moveLeft()" aria-label="Lái xe sang làn bên trái" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600 hover:from-sky-300 hover:to-blue-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#1e3a8a,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-sky-300 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
+          <button id="btn-racer-left" onclick="RacerScreen.moveLeft()" aria-label="Lái xe sang làn bên trái" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-sky-400 via-blue-500 to-blue-600 hover:from-sky-300 hover:to-blue-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#1e3a8a,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-sky-300 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
             <span class="text-lg sm:text-xl md:text-2xl" aria-hidden="true">⬅️</span>
             <span>Sang trái</span>
           </button>
@@ -890,15 +891,20 @@ const RacerScreen = {
             Chạm vào làn hoặc bấm ⬅️ ➡️ để bẻ lái
           </span>
 
-          <button onclick="RacerScreen.moveRight()" aria-label="Lái xe sang làn bên phải" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 hover:from-amber-300 hover:to-orange-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#9a3412,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-amber-200 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
+          <button id="btn-racer-right" onclick="RacerScreen.moveRight()" aria-label="Lái xe sang làn bên phải" class="px-4 sm:px-8 md:px-10 py-2.5 sm:py-3 md:py-3.5 rounded-2xl md:rounded-3xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 hover:from-amber-300 hover:to-orange-500 text-white font-black text-sm sm:text-base md:text-xl shadow-[0_6px_0_#9a3412,0_10px_16px_rgba(0,0,0,0.25)] active:shadow-none active:translate-y-1.5 border border-amber-200 transition-all flex items-center gap-1.5 sm:gap-2 select-none cursor-pointer">
             <span>Sang phải</span>
             <span class="text-lg sm:text-xl md:text-2xl" aria-hidden="true">➡️</span>
           </button>
         </div>
 
         <!-- MODAL GARA CHỌN XE ĐẦU MÀN CHƠI & ĐỔI XE -->
-        <div id="racer-garage-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 transition-opacity duration-300 hidden">
-          <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl border-4 border-amber-300 p-4 md:p-6 flex flex-col items-center max-h-[92vh] overflow-y-auto">
+        <div id="racer-garage-modal" onclick="if(event.target === this) RacerScreen.closeGarage()" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 transition-opacity duration-300 hidden">
+          <div class="bg-white w-full max-w-xl rounded-3xl shadow-2xl border-4 border-amber-300 p-4 md:p-6 flex flex-col items-center max-h-[92vh] overflow-y-auto relative">
+            <!-- Nút đóng Gara (✖) to rõ ở góc trên bên phải -->
+            <button id="btn-close-garage" onclick="RacerScreen.closeGarage()" aria-label="Đóng Gara hoặc quay về Trang chủ" class="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 font-black text-lg sm:text-xl flex items-center justify-center transition-all shadow-sm border border-slate-200 hover:border-rose-300 active:scale-90 cursor-pointer z-10">
+              <span aria-hidden="true">✖</span>
+            </button>
+
             <!-- Tiêu đề Gara -->
             <div class="text-center mb-3">
               <h2 class="text-2xl md:text-3xl font-black text-slate-800 flex items-center justify-center gap-2">
@@ -915,7 +921,7 @@ const RacerScreen = {
             </div>
 
             <!-- Nút Xuất Phát -->
-            <button onclick="RacerScreen.confirmCarAndStart()" class="w-full py-3.5 md:py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-900 font-black text-xl md:text-2xl shadow-lg border-2 border-white transition-all flex items-center justify-center gap-3">
+            <button id="btn-racer-start" onclick="RacerScreen.confirmCarAndStart()" class="w-full py-3.5 md:py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-900 font-black text-xl md:text-2xl shadow-lg border-2 border-white transition-all flex items-center justify-center gap-3">
               <span>🏁</span>
               <span>XUẤT PHÁT ĐUA XE!</span>
               <span>🏎️💨</span>
@@ -989,6 +995,7 @@ const RacerScreen = {
 
   // Mở Gara chọn xe
   openGarage(isStartOfGame = false) {
+    this.isGarageAtStart = isStartOfGame;
     this.isRacing = false;
     this.isWaitingForQuestion = false;
     this.isSpawningWave = false;
@@ -1004,6 +1011,19 @@ const RacerScreen = {
     // Nếu chưa nạp trước lượt 1 thì chuẩn bị ngay
     if (!this.nextWaveData) {
       this.nextWaveData = this.prepareWaveData();
+    }
+  },
+
+  // Đóng Gara và thoát an toàn về Trang chủ hoặc tiếp tục đua
+  closeGarage() {
+    const modal = document.getElementById("racer-garage-modal");
+    if (modal) {
+      modal.classList.add("hidden");
+    }
+    if (this.isGarageAtStart) {
+      this.exitGame();
+    } else {
+      this.startContinuousLoop();
     }
   },
 

@@ -217,10 +217,10 @@ const HomeScreen = {
           </div>
 
           <!-- Cụm phải: Thanh tiến trình cấp độ & Nút Kho Huy hiệu -->
-          <div class="flex items-center gap-2.5 sm:gap-3.5 w-full sm:w-auto justify-between sm:justify-end">
+          <div class="flex items-center gap-2 sm:gap-3.5 w-full sm:w-auto justify-between sm:justify-end flex-wrap sm:flex-nowrap">
             <!-- Thanh tiến trình lên cấp -->
-            <div class="flex flex-col items-end flex-1 sm:flex-initial min-w-[130px] sm:min-w-[170px]">
-              <div class="flex items-center justify-between w-full text-[11px] font-black text-slate-600 mb-1">
+            <div class="flex flex-col items-end flex-1 sm:flex-initial min-w-[110px] sm:min-w-[160px]">
+              <div class="flex items-center justify-between w-full text-[10px] sm:text-[11px] font-black text-slate-600 mb-1">
                 <span>Tiến trình cấp độ</span>
                 <span class="text-amber-700 font-extrabold">${levelInfo.level === 4 ? 'ĐÃ ĐẠT MAX' : `${stars}/${levelInfo.next} ⭐`}</span>
               </div>
@@ -230,9 +230,11 @@ const HomeScreen = {
             </div>
 
             <!-- Nút mở Kho Huy Hiệu & Sticker -->
-            <button onclick="HomeScreen.openBadgeModal()" aria-label="Mở bộ sưu tập huy hiệu của bé Đậu" class="px-3 sm:px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 text-slate-900 font-black text-xs sm:text-sm shadow-md border-2 border-white flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0">
+            <button onclick="HomeScreen.openBadgeModal()" aria-label="Mở bộ sưu tập huy hiệu của bé Đậu" class="px-2.5 sm:px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 text-slate-900 font-black text-xs sm:text-sm shadow-md border-2 border-white flex items-center gap-1 sm:gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0">
               <span class="text-base sm:text-lg" aria-hidden="true">🏆</span>
-              <span>Bộ sưu tập (${unlockedCount}/8)</span>
+              <span class="hidden xs:inline">Bộ sưu tập</span>
+              <span class="xs:hidden">Huy hiệu</span>
+              <span>(${unlockedCount}/8)</span>
             </button>
           </div>
         </div>
@@ -254,8 +256,13 @@ const HomeScreen = {
       </div>
 
       <!-- 3. MODAL KHO HUY HIỆU & STICKER CỦA ĐẬU -->
-      <div id="home-badge-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="modal-badge-title">
-        <div class="bg-white rounded-[2.5rem] p-5 sm:p-7 max-w-2xl w-full shadow-2xl border-4 border-amber-300 flex flex-col items-center max-h-[92vh] overflow-y-auto">
+      <div id="home-badge-modal" onclick="if(event.target === this) HomeScreen.closeBadgeModal()" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="modal-badge-title">
+        <div class="bg-white rounded-[2.5rem] p-5 sm:p-7 max-w-2xl w-full shadow-2xl border-4 border-amber-300 flex flex-col items-center max-h-[92vh] overflow-y-auto relative">
+          <!-- Nút đóng nhanh (✖) to rõ ở góc trên bên phải -->
+          <button id="btn-close-badge-modal" onclick="HomeScreen.closeBadgeModal()" aria-label="Đóng kho huy hiệu" class="absolute top-3 right-3 sm:top-4 sm:right-4 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 font-black text-lg sm:text-xl flex items-center justify-center transition-all shadow-sm border border-slate-200 hover:border-rose-300 active:scale-90 cursor-pointer z-10">
+            <span aria-hidden="true">✖</span>
+          </button>
+
           <!-- Header Modal Huy hiệu -->
           <div class="text-5xl sm:text-6xl mb-1 filter drop-shadow animate-bounce">🏆</div>
           <h2 id="modal-badge-title" class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight text-center">KHO HUY HIỆU & STICKER</h2>

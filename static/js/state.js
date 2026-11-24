@@ -173,6 +173,9 @@ const AppState = {
     if (this.audioPlayer) {
       this.audioPlayer.pause();
       this.audioPlayer.currentTime = 0;
+      this.audioPlayer.ontimeupdate = null;
+      this.audioPlayer.onended = null;
+      this.audioPlayer.onerror = null;
     }
     this.notifyAudioState(false, false);
   },

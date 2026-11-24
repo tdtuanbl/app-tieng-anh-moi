@@ -4,11 +4,15 @@ const LearnScreen = {
   words: [],
   isSpeaking: false,
   isFlipped: false,
+  isFlipping: false,
   isAdvancing: false,
   advanceTimer: null,
   playSequence: 0,
   audioListenerAttached: false,
   audioCtx: null,
+  ttsUrlCache: new Map(),
+  lastPraise: "",
+  lastEnPraise: "",
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
@@ -68,6 +72,120 @@ const LearnScreen = {
     } catch (e) {
       console.warn("Chime error:", e);
     }
+  },
+
+  // Lấy URL audio từ backend TTS kèm bộ nhớ đệm cache và pre-buffer vào RAM
+  async fetchAudioUrl(text, lang) {
+    if (!text) return null;
+    const cacheKey = `${lang}_${text}`;
+    if (this.ttsUrlCache && this.ttsUrlCache.has(cacheKey)) {
+      return this.ttsUrlCache.get(cacheKey);
+    }
+    if (window.QuizScreen && window.QuizScreen.ttsUrlCache && window.QuizScreen.ttsUrlCache.has(cacheKey)) {
+      const url = window.QuizScreen.ttsUrlCache.get(cacheKey);
+      this.ttsUrlCache.set(cacheKey, url);
+      return url;
+    }
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.url) {
+        if (!this.ttsUrlCache) this.ttsUrlCache = new Map();
+        this.ttsUrlCache.set(cacheKey, data.url);
+        // Tải trước buffer âm thanh vào RAM trình duyệt Safari/WebKit
+        const a = new Audio();
+        a.preload = "auto";
+        a.src = data.url;
+        try { a.load(); } catch (e) {}
+        return data.url;
+      }
+      return null;
+    } catch (err) {
+      console.error("Lỗi nạp trước câu khen LearnScreen:", err);
+      return null;
+    }
+  },
+
+  // Nạp trước toàn bộ các câu khen ngợi vào RAM (ttsUrlCache)
+  preloadPraises() {
+    this.ttsUrlCache = this.ttsUrlCache || new Map();
+    const items = [];
+    this.VI_PRAISES.forEach(text => items.push({ text, lang: "vi" }));
+    this.EN_PRAISES.forEach(text => items.push({ text, lang: "en" }));
+
+    items.forEach((item, index) => {
+      setTimeout(() => {
+        const key = `${item.lang}_${item.text}`;
+        if (!this.ttsUrlCache.has(key)) {
+          this.fetchAudioUrl(item.text, item.lang);
+        }
+      }, 100 + index * 180);
+    });
+  },
+
+  // Phát file audio từ cache RAM đảm bảo không bị đè và bắt đúng sự kiện kết thúc
+  playPreloadedAudio(url) {
+    return new Promise((resolve) => {
+      if (!url) {
+        resolve();
+        return;
+      }
+      try {
+        AppState.stopAudio();
+        const player = AppState.audioPlayer;
+        if (!player) {
+          resolve();
+          return;
+        }
+
+        player.ontimeupdate = null;
+        AppState.currentAudioResolve = resolve;
+
+        let finished = false;
+        const onFinish = () => {
+          if (finished) return;
+          finished = true;
+          player.ontimeupdate = null;
+          player.onended = null;
+          player.onerror = null;
+          if (AppState.currentAudioResolve === resolve) {
+            AppState.currentAudioResolve = null;
+          }
+          resolve();
+        };
+
+        player.onended = onFinish;
+        player.onerror = onFinish;
+        player.src = url;
+        if (AppState.playbackRate) {
+          player.playbackRate = AppState.playbackRate;
+          player.defaultPlaybackRate = AppState.playbackRate;
+        }
+        player.play().catch(onFinish);
+      } catch (e) {
+        console.warn("Lỗi phát audio khen ngợi:", e);
+        resolve();
+      }
+    });
+  },
+
+  getRandomPraise() {
+    const list = this.VI_PRAISES.filter(p => p !== this.lastPraise);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastPraise = selected;
+    return selected;
+  },
+
+  getRandomEnPraise() {
+    const list = this.EN_PRAISES.filter(p => p !== this.lastEnPraise);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastEnPraise = selected;
+    return selected;
   },
 
   // Pháo giấy Confetti mini bung tỏa tại nút hoặc thẻ
@@ -151,6 +269,7 @@ const LearnScreen = {
     this.currentIndex = 0;
     this.isSpeaking = false;
     this.isFlipped = false;
+    this.isFlipping = false;
     this.isAdvancing = false;
     if (this.advanceTimer) {
       clearTimeout(this.advanceTimer);
@@ -159,6 +278,7 @@ const LearnScreen = {
     this.playSequence = 0;
     AppState.stopAudio();
     this.getAudioContext();
+    this.preloadPraises();
 
     if (!this.audioListenerAttached) {
       AppState.addAudioListener((isLoading, isPlaying) => {
@@ -277,7 +397,7 @@ const LearnScreen = {
           <!-- Huy hiệu từ đã thuộc -->
           <div class="px-2.5 sm:px-3 py-1.5 rounded-2xl bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200 flex items-center gap-1 shrink-0" title="Đã học ${learnedCount} trên tổng số ${total} từ">
             <span aria-hidden="true">✅</span>
-            <span>${learnedCount}/${total}</span>
+            <span id="learn-learned-count">${learnedCount}/${total}</span>
           </div>
         </div>
 
@@ -400,10 +520,16 @@ const LearnScreen = {
     `;
   },
 
-  // Lật thẻ 3D qua lại
+  // Lật thẻ 3D qua lại (khóa chống chạm đúp trong 500ms)
   toggleFlip(forceState) {
+    if (this.isFlipping) return;
     const inner = document.getElementById("flashcard-inner");
     if (!inner) return;
+
+    this.isFlipping = true;
+    setTimeout(() => {
+      this.isFlipping = false;
+    }, 500);
 
     if (typeof forceState === "boolean") {
       this.isFlipped = forceState;
@@ -457,13 +583,19 @@ const LearnScreen = {
     }
   },
 
-  // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn (Mạch học liền mạch)
+  // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn (Mạch học liền mạch, nghe trọn vẹn lời cô)
   async confirmCorrect() {
     if (this.isAdvancing) return;
     const word = this.words[this.currentIndex];
     if (!word) return;
 
     this.isAdvancing = true;
+
+    // Khóa tạm nút tích xanh & làm mờ nhẹ chống bấm đè
+    const btnConfirm = document.getElementById("btn-confirm-correct");
+    if (btnConfirm) {
+      btnConfirm.classList.add("pointer-events-none", "opacity-75");
+    }
 
     // Ngắt âm thanh đang đọc từ dở nếu có
     AppState.stopAudio();
@@ -473,18 +605,23 @@ const LearnScreen = {
     AppState.addStars(1);
     this.saveWordLearned(word.id);
 
+    // Cập nhật ngay số từ đã học trên huy hiệu top bar
+    const countEl = document.getElementById("learn-learned-count");
+    if (countEl) {
+      countEl.textContent = `${this.getLearnedCount()}/${this.words.length}`;
+    }
+
     // 2. Âm thanh "Ting!" pha lê tức thì 0ms bằng Web Audio API
     this.playVictoryChime();
 
     // 3. Hiệu ứng pháo giấy Confetti mini & ngôi sao vàng bay lên thanh điểm số
-    const anchorEl = document.getElementById("btn-confirm-correct") || document.getElementById("flashcard-wrap");
+    const anchorEl = btnConfirm || document.getElementById("flashcard-wrap");
     this.triggerConfetti(anchorEl);
     this.triggerFlyingStar(anchorEl);
 
-    // 4. Hiển thị lời khen ngắn gọn ngay trên thẻ / banner
+    // 4. Chọn câu khen và hiển thị banner khen ngợi
     const isBilingual = AppState.voiceMode === "bilingual";
-    const praises = isBilingual ? this.VI_PRAISES : this.EN_PRAISES;
-    const praise = praises[Math.floor(Math.random() * praises.length)];
+    const praise = isBilingual ? this.getRandomPraise() : this.getRandomEnPraise();
 
     const feedbackBanner = document.getElementById("learn-feedback-banner");
     if (feedbackBanner) {
@@ -497,15 +634,31 @@ const LearnScreen = {
       feedbackBanner.classList.remove("hidden");
     }
 
-    // 5. Phát giọng cô khen
-    await AppState.speakText(praise, isBilingual ? "vi" : "en");
+    // 5. Phát giọng cô khen ngợi từ cache RAM (0ms)
+    const praiseKey = `${isBilingual ? "vi" : "en"}_${praise}`;
+    const cachedUrl = (this.ttsUrlCache && this.ttsUrlCache.get(praiseKey)) ||
+                      (window.QuizScreen && window.QuizScreen.ttsUrlCache && window.QuizScreen.ttsUrlCache.get(praiseKey));
 
-    // 6. Tự động chuyển mượt sang từ tiếp theo sau 1.2s (Mạch học không gián đoạn)
-    this.advanceTimer = setTimeout(() => {
-      this.isAdvancing = false;
-      if (feedbackBanner) feedbackBanner.classList.add("hidden");
-      this.nextWord();
-    }, 1200);
+    const playPromise = cachedUrl
+      ? this.playPreloadedAudio(cachedUrl)
+      : AppState.speakText(praise, isBilingual ? "vi" : "en");
+
+    // Timeout dự phòng an toàn tối đa 2.2s nếu audio bị nghẽn mạng
+    const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2200));
+
+    // Đợi giọng khen phát xong (hoặc tối đa 2.2s)
+    await Promise.race([playPromise, timeoutPromise]);
+
+    // Thêm khoảng nghỉ ngắn 300ms sau khi cô khen xong rồi chuyển mượt sang từ tiếp theo
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    this.isAdvancing = false;
+    if (feedbackBanner) feedbackBanner.classList.add("hidden");
+    if (btnConfirm) {
+      btnConfirm.classList.remove("pointer-events-none", "opacity-75");
+    }
+
+    this.nextWord();
   },
 
   // Lưu từ đã học vào localStorage
@@ -530,6 +683,7 @@ const LearnScreen = {
       this.advanceTimer = null;
     }
     this.isAdvancing = false;
+    this.isFlipping = false;
     AppState.stopAudio();
     this.isSpeaking = false;
     this.isFlipped = false; // Luôn hiển thị mặt trước để bé quan sát hình trước
@@ -551,6 +705,7 @@ const LearnScreen = {
       this.advanceTimer = null;
     }
     this.isAdvancing = false;
+    this.isFlipping = false;
     AppState.stopAudio();
     this.isSpeaking = false;
     this.isFlipped = false; // Luôn hiển thị mặt trước khi lùi
