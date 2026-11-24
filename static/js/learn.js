@@ -13,6 +13,8 @@ const LearnScreen = {
   ttsUrlCache: new Map(),
   lastPraise: "",
   lastEnPraise: "",
+  activeSoundNodes: [],
+  isSpeakingRealSound: false,
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
@@ -72,6 +74,496 @@ const LearnScreen = {
     } catch (e) {
       console.warn("Chime error:", e);
     }
+  },
+
+  // Dừng toàn bộ các node âm thanh thực tế đang phát
+  stopRealSound() {
+    if (this.activeSoundNodes && this.activeSoundNodes.length > 0) {
+      this.activeSoundNodes.forEach(node => {
+        try { node.stop(); } catch (e) {}
+      });
+      this.activeSoundNodes = [];
+    }
+    this.isSpeakingRealSound = false;
+  },
+
+  // Kiểm tra xem từ vựng có hỗ trợ âm thanh thực tế Web Audio không
+  hasRealSound(wordId) {
+    return !!this.getSoundKey(wordId);
+  },
+
+  // Ánh xạ từ vựng sang key âm thanh thực tế
+  getSoundKey(wordId) {
+    if (!wordId) return null;
+    const id = wordId.toLowerCase();
+    // 8 nhóm phương tiện giao thông (Vehicles)
+    if (id === "fire_truck") return "fire_truck";
+    if (id === "police_car") return "police_car";
+    if (id === "ambulance") return "ambulance";
+    if (["car", "bus", "taxi", "pickup_truck", "van", "truck"].includes(id)) return "car_horn";
+    if (["train", "bullet_train"].includes(id)) return "train_whistle";
+    if (["bicycle", "cyclo", "tricycle"].includes(id)) return "bicycle_bell";
+    if (["ship", "ferry", "boat", "speedboat"].includes(id)) return "ship_horn";
+    if (["airplane", "rocket", "helicopter"].includes(id)) return "engine_rumble";
+
+    // 9 nhóm động vật (Animals)
+    if (["cat", "kitten"].includes(id)) return "cat_meow";
+    if (["dog", "puppy"].includes(id)) return "dog_bark";
+    if (id === "cow") return "cow_moo";
+    if (id === "pig") return "pig_oink";
+    if (["chicken", "rooster", "hen"].includes(id)) return "rooster_crow";
+    if (id === "duck") return "duck_quack";
+    if (["lion", "tiger"].includes(id)) return "lion_roar";
+    if (id === "elephant") return "elephant_trumpet";
+    if (["bird", "sparrow"].includes(id)) return "bird_chirp";
+
+    return null;
+  },
+
+  // Phát 17 hiệu ứng âm thanh thực tế bằng Web Audio API thuần (0KB tải ngoài, 0ms trễ, 1.0-1.2s)
+  playRealSound(wordId) {
+    const soundKey = this.getSoundKey(wordId);
+    if (!soundKey) return Promise.resolve();
+
+    this.stopRealSound();
+    const ctx = this.getAudioContext();
+    if (!ctx) return Promise.resolve();
+
+    this.isSpeakingRealSound = true;
+    const t0 = ctx.currentTime;
+    let duration = 1.1;
+
+    const registerNode = (node) => {
+      this.activeSoundNodes.push({
+        stop: () => {
+          try { node.stop(); } catch (e) {}
+          try { node.disconnect(); } catch (e) {}
+        }
+      });
+    };
+
+    try {
+      switch (soundKey) {
+        case "fire_truck": {
+          // 1. Còi cứu hỏa Hi-Lo (900Hz -> 650Hz xen kẽ 2 chu kỳ)
+          duration = 1.15;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = "sawtooth";
+          filter.type = "lowpass";
+          filter.frequency.value = 1800;
+          osc.frequency.setValueAtTime(900, t0);
+          osc.frequency.setValueAtTime(650, t0 + 0.28);
+          osc.frequency.setValueAtTime(900, t0 + 0.56);
+          osc.frequency.setValueAtTime(650, t0 + 0.84);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.2, t0 + 0.05);
+          gain.gain.setValueAtTime(0.2, t0 + 1.0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.15);
+          registerNode(osc);
+          break;
+        }
+        case "police_car": {
+          // 2. Còi xe cảnh sát hụ biến tần nhanh (quét tần số 650Hz - 1350Hz)
+          duration = 1.15;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = "sawtooth";
+          filter.type = "lowpass";
+          filter.frequency.value = 2200;
+          osc.frequency.setValueAtTime(650, t0);
+          osc.frequency.linearRampToValueAtTime(1350, t0 + 0.28);
+          osc.frequency.linearRampToValueAtTime(650, t0 + 0.56);
+          osc.frequency.linearRampToValueAtTime(1350, t0 + 0.84);
+          osc.frequency.linearRampToValueAtTime(650, t0 + 1.1);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.18, t0 + 0.04);
+          gain.gain.setValueAtTime(0.18, t0 + 1.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.15);
+          registerNode(osc);
+          break;
+        }
+        case "ambulance": {
+          // 3. Còi xe cấp cứu Wee-Waa (820Hz / 600Hz êm dịu)
+          duration = 1.05;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(820, t0);
+          osc.frequency.setValueAtTime(600, t0 + 0.35);
+          osc.frequency.setValueAtTime(820, t0 + 0.70);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.25, t0 + 0.05);
+          gain.gain.setValueAtTime(0.25, t0 + 0.95);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.05);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.05);
+          registerNode(osc);
+          break;
+        }
+        case "car_horn": {
+          // 4. Còi xe bíp-bíp đôi (hợp âm 440Hz + 554Hz nhịp đôi)
+          duration = 0.9;
+          [440, 554].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sawtooth";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, t0);
+            gain.gain.linearRampToValueAtTime(0.12, t0 + 0.02);
+            gain.gain.setValueAtTime(0.12, t0 + 0.32);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+            gain.gain.setValueAtTime(0, t0 + 0.45);
+            gain.gain.linearRampToValueAtTime(0.12, t0 + 0.47);
+            gain.gain.setValueAtTime(0.12, t0 + 0.80);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.88);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0);
+            osc.stop(t0 + 0.9);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "train_whistle": {
+          // 5. Còi tàu hỏa tu-tu trầm ấm (311Hz + 370Hz + 466Hz)
+          duration = 1.15;
+          [311, 370, 466].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "triangle";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, t0);
+            gain.gain.linearRampToValueAtTime(0.12, t0 + 0.15);
+            gain.gain.setValueAtTime(0.12, t0 + 0.85);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0);
+            osc.stop(t0 + 1.15);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "bicycle_bell": {
+          // 6. Chuông xe đạp kính-koong trong trẻo (2093Hz và 2637Hz)
+          duration = 0.9;
+          [[2093, 0], [2637, 0.25]].forEach(([freq, delay]) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            const st = t0 + delay;
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(0.25, st + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + 0.55);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(st);
+            osc.stop(st + 0.56);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "ship_horn": {
+          // 7. Còi tàu thủy sương mù rền vang (165Hz + 220Hz qua lowpass filter)
+          duration = 1.2;
+          [165, 220].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = "sawtooth";
+            osc.frequency.value = freq;
+            filter.type = "lowpass";
+            filter.frequency.value = 600;
+            gain.gain.setValueAtTime(0, t0);
+            gain.gain.linearRampToValueAtTime(0.18, t0 + 0.2);
+            gain.gain.setValueAtTime(0.18, t0 + 0.95);
+            gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0);
+            osc.stop(t0 + 1.2);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "engine_rumble": {
+          // 8. Động cơ máy bay / trực thăng rung rền (90Hz - 140Hz qua lowpass)
+          duration = 1.15;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(90, t0);
+          osc.frequency.linearRampToValueAtTime(140, t0 + 0.6);
+          osc.frequency.linearRampToValueAtTime(110, t0 + 1.1);
+          filter.type = "lowpass";
+          filter.frequency.value = 450;
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.2, t0 + 0.2);
+          gain.gain.setValueAtTime(0.2, t0 + 0.85);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.15);
+          registerNode(osc);
+          break;
+        }
+        case "cat_meow": {
+          // 9. Tiếng mèo meo meo nũng nịu (sóng sin trượt 580Hz -> 920Hz -> 520Hz)
+          duration = 1.0;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(580, t0);
+          osc.frequency.exponentialRampToValueAtTime(920, t0 + 0.35);
+          osc.frequency.exponentialRampToValueAtTime(520, t0 + 0.95);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.22, t0 + 0.1);
+          gain.gain.setValueAtTime(0.2, t0 + 0.65);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.0);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.0);
+          registerNode(osc);
+          break;
+        }
+        case "dog_bark": {
+          // 10. Tiếng cún gâu gâu vui tai (2 nhịp sủa ngắn)
+          duration = 0.9;
+          [0, 0.38].forEach(delay => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = "sawtooth";
+            filter.type = "lowpass";
+            filter.frequency.value = 1200;
+            const st = t0 + delay;
+            osc.frequency.setValueAtTime(380, st);
+            osc.frequency.exponentialRampToValueAtTime(180, st + 0.22);
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(0.28, st + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + 0.24);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(st);
+            osc.stop(st + 0.25);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "cow_moo": {
+          // 11. Tiếng bò ùm bò trầm ấm (180Hz -> 125Hz qua lowpass filter)
+          duration = 1.15;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(180, t0);
+          osc.frequency.exponentialRampToValueAtTime(125, t0 + 0.9);
+          filter.type = "lowpass";
+          filter.frequency.value = 400;
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.3, t0 + 0.2);
+          gain.gain.setValueAtTime(0.28, t0 + 0.8);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.15);
+          registerNode(osc);
+          break;
+        }
+        case "pig_oink": {
+          // 12. Tiếng heo ủn ỉn (2 nhịp ủi ủi 240Hz -> 160Hz)
+          duration = 0.9;
+          [0, 0.35].forEach(delay => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = "sawtooth";
+            filter.type = "bandpass";
+            filter.frequency.value = 500;
+            const st = t0 + delay;
+            osc.frequency.setValueAtTime(240, st);
+            osc.frequency.exponentialRampToValueAtTime(160, st + 0.2);
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(0.25, st + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + 0.22);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(st);
+            osc.stop(st + 0.24);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "rooster_crow": {
+          // 13. Tiếng gà gáy ò ó o (360Hz -> 540Hz -> 700Hz -> 520Hz)
+          duration = 1.1;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sawtooth";
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = 1600;
+          osc.frequency.setValueAtTime(360, t0);
+          osc.frequency.linearRampToValueAtTime(540, t0 + 0.2);
+          osc.frequency.linearRampToValueAtTime(700, t0 + 0.45);
+          osc.frequency.linearRampToValueAtTime(520, t0 + 0.95);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.18, t0 + 0.1);
+          gain.gain.setValueAtTime(0.18, t0 + 0.85);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.05);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.05);
+          registerNode(osc);
+          break;
+        }
+        case "duck_quack": {
+          // 14. Tiếng vịt cạp cạp (2 nhịp quack quack bandpass 800Hz)
+          duration = 0.9;
+          [0, 0.38].forEach(delay => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+            osc.type = "sawtooth";
+            filter.type = "bandpass";
+            filter.frequency.value = 800;
+            filter.Q.value = 3;
+            const st = t0 + delay;
+            osc.frequency.setValueAtTime(420, st);
+            osc.frequency.linearRampToValueAtTime(320, st + 0.22);
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(0.28, st + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + 0.25);
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(st);
+            osc.stop(st + 0.26);
+            registerNode(osc);
+          });
+          break;
+        }
+        case "lion_roar": {
+          // 15. Tiếng sư tử / hổ gầm gừ uy nghiêm (130Hz -> 75Hz qua lowpass filter)
+          duration = 1.15;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(130, t0);
+          osc.frequency.linearRampToValueAtTime(75, t0 + 0.9);
+          filter.type = "lowpass";
+          filter.frequency.value = 350;
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.3, t0 + 0.15);
+          gain.gain.setValueAtTime(0.28, t0 + 0.8);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.15);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.15);
+          registerNode(osc);
+          break;
+        }
+        case "elephant_trumpet": {
+          // 16. Tiếng voi ré kèn vút cao (520Hz vút lên 1150Hz)
+          duration = 1.1;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(520, t0);
+          osc.frequency.linearRampToValueAtTime(1150, t0 + 0.4);
+          osc.frequency.linearRampToValueAtTime(950, t0 + 1.0);
+          gain.gain.setValueAtTime(0, t0);
+          gain.gain.linearRampToValueAtTime(0.25, t0 + 0.08);
+          gain.gain.setValueAtTime(0.22, t0 + 0.85);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 1.1);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 1.1);
+          registerNode(osc);
+          break;
+        }
+        case "bird_chirp": {
+          // 17. Tiếng chim hót líu lo (3 nốt líu lo tần số cao 2600Hz - 3900Hz)
+          duration = 1.0;
+          [0, 0.25, 0.55].forEach((delay, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            const st = t0 + delay;
+            const baseFreq = 2600 + idx * 300;
+            osc.frequency.setValueAtTime(baseFreq, st);
+            osc.frequency.linearRampToValueAtTime(baseFreq + 700, st + 0.08);
+            osc.frequency.linearRampToValueAtTime(baseFreq - 200, st + 0.18);
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(0.2, st + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, st + 0.2);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(st);
+            osc.stop(st + 0.22);
+            registerNode(osc);
+          });
+          break;
+        }
+        default:
+          return Promise.resolve();
+      }
+    } catch (err) {
+      console.error("Lỗi phát âm thanh thực tế Web Audio:", err);
+      this.isSpeakingRealSound = false;
+      return Promise.resolve();
+    }
+
+    return new Promise(resolve => {
+      setTimeout(() => {
+        this.isSpeakingRealSound = false;
+        resolve();
+      }, duration * 1000);
+    });
+  },
+
+  // Xử lý khi bấm nút nghe âm thanh thực tế ở mặt trước thẻ
+  handleFrontSoundClick(wordId) {
+    AppState.stopAudio();
+    this.isSpeaking = false;
+    const btn = document.getElementById("btn-front-sound");
+    if (btn) {
+      btn.classList.add("scale-105", "ring-2", "ring-amber-300");
+      setTimeout(() => btn.classList.remove("scale-105", "ring-2", "ring-amber-300"), 1200);
+    }
+    this.playRealSound(wordId);
   },
 
   // Lấy URL audio từ backend TTS kèm bộ nhớ đệm cache và pre-buffer vào RAM
@@ -277,6 +769,7 @@ const LearnScreen = {
     }
     this.playSequence = 0;
     AppState.stopAudio();
+    this.stopRealSound();
     this.getAudioContext();
     this.preloadPraises();
 
@@ -431,6 +924,14 @@ const LearnScreen = {
                   </div>
                 `}
 
+                <!-- Nút nghe âm thanh thực tế nếu từ có hiệu ứng -->
+                ${this.hasRealSound(word.id) ? `
+                  <button id="btn-front-sound" onclick="event.stopPropagation(); LearnScreen.handleFrontSoundClick('${word.id}')" class="my-1 py-1 px-3.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/60 z-10" aria-label="Nghe âm thanh thực tế">
+                    <span>🔊</span>
+                    <span>${["vehicles", "transport"].includes(AppState.currentTopic?.id) ? "Nghe còi / động cơ xe" : "Nghe tiếng kêu bạn ấy"}</span>
+                  </button>
+                ` : ''}
+
                 <!-- Nhãn gợi ý chạm tay lật thẻ & nghe đọc -->
                 <div class="py-1.5 px-4 rounded-full bg-amber-50 text-amber-800 font-black text-xs sm:text-sm border border-amber-200/80 shadow-sm animate-pulse flex items-center gap-1.5">
                   <span>👆</span>
@@ -565,16 +1066,26 @@ const LearnScreen = {
     const currentSeq = ++this.playSequence;
     this.isSpeaking = true;
     AppState.stopAudio();
+    this.stopRealSound();
 
     const word = this.words[this.currentIndex];
     if (!word) return;
 
     try {
-      // Bước A: Phát âm từ tiếng Anh (ví dụ: "Dog")
+      // Bước A: Nếu từ vựng có âm thanh thực tế -> phát trước 1.0 - 1.2s
+      if (this.hasRealSound(word.id)) {
+        await this.playRealSound(word.id);
+        if (this.playSequence !== currentSeq) return;
+        // Khoảng nghỉ ngắn 150ms để âm thanh thực tế lắng xuống
+        await new Promise(r => setTimeout(r, 150));
+        if (this.playSequence !== currentSeq) return;
+      }
+
+      // Bước B: Phát âm từ tiếng Anh (ví dụ: "Dog")
       await AppState.speakText(word.en, "en");
       if (this.playSequence !== currentSeq) return;
 
-      // Bước B: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Đậu đọc lại theo cô nào!"
+      // Bước C: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Đậu đọc lại theo cô nào!"
       await AppState.speakText("Đậu đọc lại theo cô nào!", "vi");
     } finally {
       if (this.playSequence === currentSeq) {
@@ -599,6 +1110,7 @@ const LearnScreen = {
 
     // Ngắt âm thanh đang đọc từ dở nếu có
     AppState.stopAudio();
+    this.stopRealSound();
     this.isSpeaking = false;
 
     // 1. Cộng sao & lưu tiến trình từ đã học
@@ -685,6 +1197,7 @@ const LearnScreen = {
     this.isAdvancing = false;
     this.isFlipping = false;
     AppState.stopAudio();
+    this.stopRealSound();
     this.isSpeaking = false;
     this.isFlipped = false; // Luôn hiển thị mặt trước để bé quan sát hình trước
 
@@ -707,6 +1220,7 @@ const LearnScreen = {
     this.isAdvancing = false;
     this.isFlipping = false;
     AppState.stopAudio();
+    this.stopRealSound();
     this.isSpeaking = false;
     this.isFlipped = false; // Luôn hiển thị mặt trước khi lùi
 
