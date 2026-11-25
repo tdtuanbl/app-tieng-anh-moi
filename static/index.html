@@ -86,6 +86,7 @@
       <button id="btn-home" onclick="AppState.showScreen('screen-home')" aria-label="Quay về trang chủ" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-1.5 active:scale-95">
         <span class="text-base sm:text-lg" aria-hidden="true">🏠</span>
         <span>Trang chủ</span>
+        <span data-lock-badge class="hidden text-xs ml-0.5" aria-hidden="true">🔒</span>
       </button>
     </div>
   </header>
@@ -116,18 +117,25 @@
   </main>
 
   <!-- Script Khởi tạo -->
-  <script src="/static/js/state.js?v=30"></script>
-  <script src="/static/js/home.js?v=30"></script>
-  <script src="/static/js/learn.js?v=30"></script>
-  <script src="/static/js/quiz.js?v=30"></script>
-  <script src="/static/js/racer.js?v=30"></script>
+  <script src="/static/js/state.js?v=32"></script>
+  <script src="/static/js/home.js?v=32"></script>
+  <script src="/static/js/learn.js?v=32"></script>
+  <script src="/static/js/quiz.js?v=32"></script>
+  <script src="/static/js/racer.js?v=32"></script>
   <script>
     // Mở khóa AudioContext và quyền phát âm thanh trên Safari iPadOS
     function unlockAudioAndStart() {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        ctx.resume();
+      if (window.AppState && typeof AppState.getAudioContext === "function") {
+        const ctx = AppState.getAudioContext();
+        if (ctx && ctx.state === "suspended") {
+          ctx.resume().catch(() => {});
+        }
+      } else {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          ctx.resume();
+        }
       }
       if (window.AppState && AppState.audioPlayer) {
         AppState.audioPlayer.play().catch(() => {});

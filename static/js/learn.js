@@ -15,12 +15,28 @@ const LearnScreen = {
   lastEnPraise: "",
   activeSoundNodes: [],
   isSpeakingRealSound: false,
+  isPronunciationPassed: false,
+  failCount: 0,
+  isListening: false,
+  speechRecognition: null,
+  speechTimeoutTimer: null,
+  speechFeedbackState: null,
+  isConfirmingFromSpeech: false,
+  lastRetryPrompt: "",
+  isSpeakingRetryPrompt: false,
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
     "Hoan hô, Đậu của cô giỏi quá!",
     "Tuyệt vời, cô thưởng Đậu một ngôi sao nhé!",
     "Chính xác rồi, Đậu đọc siêu quá nè!"
+  ],
+
+  VI_RETRY_PROMPTS: [
+    "Đậu đọc lại to và rõ hơn một chút nhé!",
+    "Gần đúng rồi Đậu ơi, thử lại nào!",
+    "Cô chưa nghe rõ, Đậu nói lại cho cô nghe nhé!",
+    "Cố lên Đậu ơi, đọc lại một lần nữa nào!"
   ],
 
   EN_PRAISES: [
@@ -30,11 +46,64 @@ const LearnScreen = {
     "Spot on, Đậu!"
   ],
 
-  // Khởi tạo AudioContext cho âm thanh Ting 0ms
+  // Bảng quy đổi đồng âm trẻ em Việt 5 tuổi giúp không chấm oan giọng trẻ thơ
+  CHILD_HOMOPHONES: {
+    car: ["ka", "ca", "card", "cart", "kah", "cah", "call", "core", "cars"],
+    bus: ["but", "bud", "bot", "bath", "buzz", "boss", "birth", "bo", "buss", "bucks"],
+    cat: ["ket", "cut", "cad", "cap", "kit", "kat", "catt", "catch"],
+    dog: ["dot", "dock", "dark", "doc", "dawg", "dug", "doggy", "dogg"],
+    ship: ["sip", "sheep", "chip", "sheet", "sit", "shift"],
+    train: ["chain", "rain", "jane", "tran", "trane", "tren", "tray"],
+    truck: ["chuck", "track", "trunk", "tuck", "chug", "chat", "truk", "trac"],
+    van: ["fan", "man", "pen", "ban", "when", "ven", "vann"],
+    taxi: ["text", "taxy", "texi", "taksi", "texas", "tax"],
+    bicycle: ["by circle", "by sico", "bi cycle", "bicycl", "bicycles"],
+    bike: ["by", "buy", "bite", "pike", "bake"],
+    boat: ["bolt", "bow", "bode", "bot", "both", "bote"],
+    airplane: ["air plain", "airplay", "explain", "play", "plain", "aeroplane"],
+    helicopter: ["heli copter", "heli", "cop ter"],
+    rocket: ["rock it", "pocket", "locket", "rock"],
+    pig: ["big", "pick", "pink", "peg", "peeg"],
+    cow: ["cowl", "how", "now", "kao", "kau"],
+    duck: ["dark", "dock", "dot", "dug", "dac", "dack", "luck", "tuck"],
+    bird: ["birth", "but", "bud", "bert", "burd", "burn"],
+    chicken: ["kitchen", "checking", "chiken", "chick", "cheeken"],
+    rooster: ["roster", "booster", "ruster"],
+    lion: ["line", "lying", "ryan", "lyon", "laion"],
+    tiger: ["tie", "tighter", "tyger", "taiger"],
+    elephant: ["elefant", "eleven", "oliphant", "alephan"],
+    sheep: ["ship", "cheap", "sheet", "seep"],
+    horse: ["house", "hose", "hoarse", "force", "hoss"],
+    frog: ["fog", "fork", "flog", "phrog"],
+    fish: ["fist", "feet", "fit", "feesh"],
+    ant: ["and", "aunt", "end", "act"],
+    bee: ["be", "b", "pea", "pee", "beat"],
+    apple: ["app", "able", "aple", "appo"],
+    milk: ["mew", "mill", "miwk"],
+    egg: ["et", "eck", "age", "eight"],
+    cake: ["kek", "kick", "bake", "take"],
+    red: ["read", "rat", "let", "wed"],
+    blue: ["blew", "boo", "lu", "bloo"],
+    green: ["grin", "clean", "queen"],
+    one: ["won", "wan"],
+    two: ["to", "too", "tu"],
+    three: ["tree", "free", "tri"],
+    four: ["for", "fo", "fall"],
+    five: ["fine", "fai", "fight"]
+  },
+
+  // Khởi tạo AudioContext dùng chung cho âm thanh Ting 0ms & Web Audio
   getAudioContext() {
     if (!this.audioCtx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.audioCtx = new AudioCtx();
+      if (window.AppState && typeof AppState.getAudioContext === "function") {
+        this.audioCtx = AppState.getAudioContext();
+      } else {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.audioCtx = new AudioCtx();
+      }
+    }
+    if (window.AppState && !AppState.audioCtx && this.audioCtx) {
+      AppState.audioCtx = this.audioCtx;
     }
     if (this.audioCtx && this.audioCtx.state === "suspended") {
       this.audioCtx.resume().catch(() => {});
@@ -556,6 +625,7 @@ const LearnScreen = {
 
   // Xử lý khi bấm nút nghe âm thanh thực tế ở mặt trước thẻ
   handleFrontSoundClick(wordId) {
+    this.stopSpeechRecognition(true);
     AppState.stopAudio();
     this.isSpeaking = false;
     const btn = document.getElementById("btn-front-sound");
@@ -603,12 +673,13 @@ const LearnScreen = {
     }
   },
 
-  // Nạp trước toàn bộ các câu khen ngợi vào RAM (ttsUrlCache)
+  // Nạp trước toàn bộ các câu khen ngợi & câu nhắc đọc lại vào RAM (ttsUrlCache)
   preloadPraises() {
     this.ttsUrlCache = this.ttsUrlCache || new Map();
     const items = [];
     this.VI_PRAISES.forEach(text => items.push({ text, lang: "vi" }));
     this.EN_PRAISES.forEach(text => items.push({ text, lang: "en" }));
+    this.VI_RETRY_PROMPTS.forEach(text => items.push({ text, lang: "vi" }));
 
     items.forEach((item, index) => {
       setTimeout(() => {
@@ -680,6 +751,87 @@ const LearnScreen = {
     return selected;
   },
 
+  getRandomRetryPrompt() {
+    const list = this.VI_RETRY_PROMPTS.filter(p => p !== this.lastRetryPrompt);
+    const selected = list[Math.floor(Math.random() * list.length)];
+    this.lastRetryPrompt = selected;
+    return selected;
+  },
+
+  // Phát âm báo trầm nhẹ 0ms bằng Web Audio API khi phát âm < 70% hoặc chưa nghe rõ (khác hẳn chuông Ting)
+  playGentleTryAgainTone() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Nốt trầm dịu E4 (329.6 Hz) -> C4 (261.6 Hz) bằng sóng sine mềm mại
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(329.6, now);
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.14, now + 0.02);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.17);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(261.6, now + 0.14);
+      gain2.gain.setValueAtTime(0.001, now + 0.14);
+      gain2.gain.linearRampToValueAtTime(0.14, now + 0.16);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.14);
+      osc2.stop(now + 0.35);
+    } catch (e) {
+      console.warn("Gentle tone error:", e);
+    }
+  },
+
+  // Phản hồi 0ms khi phát âm < 70% hoặc no-speech: âm báo trầm nhẹ + câu nhắc nạp sẵn từ RAM ttsUrlCache
+  async playRetryFeedback() {
+    const learnScreenEl = document.getElementById("screen-learn");
+    if (learnScreenEl && learnScreenEl.classList.contains("hidden")) return;
+
+    this.isSpeakingRetryPrompt = true;
+    const micBtn = document.getElementById("btn-speak-practice");
+    if (micBtn) {
+      micBtn.disabled = true;
+      micBtn.classList.add("pointer-events-none", "opacity-75");
+    }
+
+    try {
+      this.playGentleTryAgainTone();
+
+      const promptText = this.getRandomRetryPrompt();
+      const promptKey = `vi_${promptText}`;
+      const cachedUrl = (this.ttsUrlCache && this.ttsUrlCache.get(promptKey)) || null;
+
+      if (cachedUrl) {
+        await new Promise(resolve => setTimeout(resolve, 180));
+        if (this.isListening || this.isPronunciationPassed) return;
+
+        const playPromise = this.playPreloadedAudio(cachedUrl);
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2500));
+        await Promise.race([playPromise, timeoutPromise]);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 350));
+      }
+    } finally {
+      this.isSpeakingRetryPrompt = false;
+      const btnNow = document.getElementById("btn-speak-practice");
+      if (btnNow) {
+        btnNow.disabled = false;
+        btnNow.classList.remove("pointer-events-none", "opacity-75");
+      }
+    }
+  },
+
   // Pháo giấy Confetti mini bung tỏa tại nút hoặc thẻ
   triggerConfetti(anchorEl) {
     if (!anchorEl) return;
@@ -748,6 +900,506 @@ const LearnScreen = {
     }, 750);
   },
 
+  // Chuẩn hóa chuỗi phục vụ so khớp phát âm
+  normalizeSpeechText(text) {
+    if (!text) return "";
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  },
+
+  // Quy đổi ngữ âm gần đúng cho giọng trẻ em Việt 5 tuổi (nuốt âm cuối / phụ âm gần giống)
+  phoneticNormalizeForChild(text) {
+    if (!text) return "";
+    return text
+      .replace(/ph/g, "f")
+      .replace(/ck/g, "k")
+      .replace(/[cq]/g, "k")
+      .replace(/tr/g, "ch")
+      .replace(/ee|ea/g, "i")
+      .replace(/oo/g, "u")
+      .replace(/([a-z])\1+/g, "$1")
+      .trim();
+  },
+
+  // Tính khoảng cách Levenshtein chuẩn hóa
+  levenshteinDistance(a, b) {
+    const m = a.length;
+    const n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[m][n];
+  },
+
+  // Chấm điểm 1 câu nhận diện so với từ tiếng Anh mục tiêu (0 - 100%)
+  scoreSingleTranscript(targetRaw, spokenRaw) {
+    const target = this.normalizeSpeechText(targetRaw);
+    const spoken = this.normalizeSpeechText(spokenRaw);
+    if (!target || !spoken) return 0;
+
+    // 1. Khớp trực tiếp hoặc nằm trọn vẹn trong câu bé nói (vd: "a red car")
+    if (spoken === target) return 100;
+    const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const targetRegex = new RegExp(`(^|\\s)${escapedTarget}(\\s|$)`);
+    if (targetRegex.test(spoken)) return 100;
+
+    // 2. So khớp bảng đồng âm trẻ Việt 5 tuổi
+    const homophones = this.CHILD_HOMOPHONES[target] || [];
+    if (homophones.includes(spoken)) return 85;
+    const spokenWords = spoken.split(" ").filter(Boolean);
+    for (const w of spokenWords) {
+      if (w === target) return 100;
+      if (homophones.includes(w)) return 85;
+    }
+
+    // Với từ ghép nhiều âm tiết (vd: "fire truck", "police car"), chấm trung bình từng từ thành phần
+    const targetWords = target.split(" ").filter(Boolean);
+    if (targetWords.length > 1 && spokenWords.length >= targetWords.length) {
+      let sumWordScore = 0;
+      for (let i = 0; i < targetWords.length; i++) {
+        const tw = targetWords[i];
+        let bestWordMatch = 0;
+        for (const sw of spokenWords) {
+          bestWordMatch = Math.max(bestWordMatch, this.scoreSingleTranscript(tw, sw));
+        }
+        sumWordScore += bestWordMatch;
+      }
+      const avgMultiWordScore = Math.round(sumWordScore / targetWords.length);
+      if (avgMultiWordScore >= 70) return avgMultiWordScore;
+    }
+
+    // 3. Khoảng cách Levenshtein chuẩn hóa trên chuỗi gốc
+    const maxLen = Math.max(target.length, spoken.length);
+    const dist = this.levenshteinDistance(target, spoken);
+    let bestScore = Math.max(0, Math.round((1 - dist / maxLen) * 100));
+
+    // Trường hợp bé nói thêm từ đệm với từ đơn (vd: "it dog") -> chấm từng từ con
+    if (targetWords.length === 1 && spokenWords.length > 1) {
+      for (const sw of spokenWords) {
+        const subDist = this.levenshteinDistance(target, sw);
+        const subScore = Math.max(0, Math.round((1 - subDist / Math.max(target.length, sw.length)) * 100));
+        bestScore = Math.max(bestScore, subScore);
+      }
+    }
+
+    // 4. Khoảng cách Levenshtein trên dạng ngữ âm đơn giản hóa cho trẻ 5 tuổi
+    const pTarget = this.phoneticNormalizeForChild(target);
+    const pSpoken = this.phoneticNormalizeForChild(spoken);
+    if (pTarget && pSpoken) {
+      if (pTarget === pSpoken) {
+        bestScore = Math.max(bestScore, 82);
+      } else {
+        const pDist = this.levenshteinDistance(pTarget, pSpoken);
+        const pScore = Math.max(0, Math.round((1 - pDist / Math.max(pTarget.length, pSpoken.length)) * 90));
+        bestScore = Math.max(bestScore, pScore);
+      }
+    }
+
+    return Math.min(100, bestScore);
+  },
+
+  // So khớp toàn bộ Top-5 alternatives trả về điểm cao nhất
+  evaluatePronunciation(targetWord, alternatives) {
+    let bestScore = 0;
+    let bestTranscript = "";
+    if (!Array.isArray(alternatives) || alternatives.length === 0) {
+      return { bestScore: 0, bestTranscript: "" };
+    }
+    alternatives.slice(0, 5).forEach(alt => {
+      const score = this.scoreSingleTranscript(targetWord, alt);
+      if (score > bestScore || (score === bestScore && !bestTranscript)) {
+        bestScore = score;
+        bestTranscript = alt;
+      }
+    });
+    return { bestScore, bestTranscript };
+  },
+
+  // Khóa / mở khóa 5 nút điều hướng & xác nhận tùy theo ngưỡng >= 70% (kèm nút dự phòng cho bố mẹ)
+  updateNavigationLockUI() {
+    const isLocked = !this.isPronunciationPassed;
+    const navIds = [
+      "btn-confirm-correct",
+      "btn-prev-word",
+      "btn-next-word",
+      "btn-learn-topics",
+      "btn-home"
+    ];
+    const learnScreenEl = document.getElementById("screen-learn");
+    const isLearnActive = !!(learnScreenEl && !learnScreenEl.classList.contains("hidden"));
+
+    navIds.forEach(id => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const shouldLock = id === "btn-home" ? (isLocked && isLearnActive) : isLocked;
+      btn.disabled = shouldLock;
+      if (shouldLock) {
+        btn.classList.add("opacity-40", "pointer-events-none", "cursor-not-allowed");
+      } else {
+        btn.classList.remove("opacity-40", "pointer-events-none", "cursor-not-allowed");
+      }
+      const lockBadge = btn.querySelector("[data-lock-badge]");
+      if (lockBadge) {
+        if (shouldLock) {
+          lockBadge.classList.remove("hidden");
+        } else {
+          lockBadge.classList.add("hidden");
+        }
+      }
+    });
+
+    const parentUnlockBtn = document.getElementById("btn-parent-unlock");
+    if (parentUnlockBtn) {
+      if (!this.isPronunciationPassed && this.failCount >= 3) {
+        parentUnlockBtn.classList.remove("hidden");
+      } else {
+        parentUnlockBtn.classList.add("hidden");
+      }
+    }
+  },
+
+  // Cập nhật giao diện nút Micro (sóng âm 5 cột nhảy múa) & thanh phản hồi chấm điểm
+  updateSpeechUI() {
+    const btn = document.getElementById("btn-speak-practice");
+    const feedbackBox = document.getElementById("speech-feedback-box");
+
+    if (btn) {
+      if (this.isListening) {
+        btn.className = "w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-gradient-to-r from-rose-500 via-pink-500 to-fuchsia-600 text-white font-black text-base sm:text-lg shadow-lg shadow-pink-300/60 border-2 border-white flex items-center justify-center gap-3 transition-all cursor-pointer ring-4 ring-pink-300/60";
+        btn.innerHTML = `
+          <span class="flex items-center gap-1 h-5" aria-hidden="true">
+            <span class="speak-wave-bar" style="animation-delay: 0s"></span>
+            <span class="speak-wave-bar" style="animation-delay: 0.15s"></span>
+            <span class="speak-wave-bar" style="animation-delay: 0.3s"></span>
+            <span class="speak-wave-bar" style="animation-delay: 0.15s"></span>
+            <span class="speak-wave-bar" style="animation-delay: 0s"></span>
+          </span>
+          <span>Đậu nói đi, cô đang nghe...</span>
+        `;
+      } else if (this.isPronunciationPassed) {
+        btn.className = "w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white font-black text-base sm:text-lg shadow-lg shadow-emerald-200/60 border-2 border-white flex items-center justify-center gap-2 transition-all cursor-pointer";
+        btn.innerHTML = `<span class="text-xl sm:text-2xl" aria-hidden="true">🎙️</span><span>Đậu nói lại lần nữa</span>`;
+      } else {
+        const label = this.failCount > 0 ? "Đậu đọc lại nào!" : "Đậu nói thử nào!";
+        btn.className = "w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 active:scale-95 text-white font-black text-base sm:text-lg shadow-lg shadow-pink-300/50 border-2 border-white flex items-center justify-center gap-2 transition-all cursor-pointer";
+        btn.innerHTML = `<span class="text-xl sm:text-2xl" aria-hidden="true">🎙️</span><span>${label}</span>`;
+      }
+    }
+
+    if (!feedbackBox) return;
+    const state = this.speechFeedbackState;
+    if (!state) {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto text-center text-xs sm:text-sm font-bold text-slate-500";
+      feedbackBox.innerHTML = `<span>🔒 Đậu hãy chạm <strong>"🎙️ Đậu nói thử nào!"</strong> và đọc đạt từ <strong>70%</strong> để mở khóa nút đi tiếp nhé!</span>`;
+      return;
+    }
+
+    if (state.type === "listening") {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-pink-50 border border-pink-200 text-pink-800 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 animate-pulse";
+      const interimText = state.interim ? ` (Cô nghe: "${state.interim}")` : "";
+      feedbackBox.innerHTML = `<span>🎤 Cô đang lắng nghe Đậu phát âm...${interimText}</span>`;
+    } else if (state.type === "success") {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-emerald-100 border-2 border-emerald-400 text-emerald-900 text-sm sm:text-base font-black flex items-center justify-center gap-2 shadow-sm";
+      feedbackBox.innerHTML = `<span>🎉 Chuẩn ${state.score}% — Giỏi quá Đậu ơi!</span>`;
+    } else if (state.type === "parent_unlocked") {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-sky-100 border border-sky-300 text-sky-900 text-xs sm:text-sm font-black flex items-center justify-center gap-2";
+      feedbackBox.innerHTML = `<span>🔑 Bố mẹ đã xác nhận mở khóa giúp Đậu! Bé bấm tiếp để học nhé.</span>`;
+    } else if (state.type === "permission_denied") {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-amber-100 border border-amber-300 text-amber-900 text-xs sm:text-sm font-bold";
+      feedbackBox.innerHTML = `<span>🎙️ Trình duyệt chưa được cấp quyền Micro — Bố mẹ hãy cấp quyền hoặc dùng nút mở khóa bên dưới giúp Đậu nhé!</span>`;
+    } else if (state.type === "unsupported") {
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-amber-100 border border-amber-300 text-amber-900 text-xs sm:text-sm font-bold";
+      feedbackBox.innerHTML = `<span>📱 Thiết bị/trình duyệt chưa hỗ trợ nhận diện giọng nói — Bố mẹ dùng nút mở khóa bên dưới giúp Đậu nhé!</span>`;
+    } else if (state.type === "retry") {
+      const score = typeof state.score === "number" ? state.score : 0;
+      feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-900 text-xs sm:text-sm font-extrabold flex flex-col items-center gap-1.5 shadow-sm";
+      feedbackBox.innerHTML = `
+        <span>🔄 Mới đạt ${score}% (cần 70%) — Đậu đọc lại to và rõ hơn nhé!</span>
+        <div class="w-48 sm:w-64 h-2 bg-amber-200/80 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-300" style="width: ${Math.max(4, score)}%"></div>
+        </div>
+      `;
+    }
+  },
+
+  // Dừng phiên nhận diện giọng nói đang hoạt động một cách an toàn
+  stopSpeechRecognition(silent = false) {
+    if (this.speechTimeoutTimer) {
+      clearTimeout(this.speechTimeoutTimer);
+      this.speechTimeoutTimer = null;
+    }
+    const rec = this.speechRecognition;
+    this.speechRecognition = null;
+    this.isListening = false;
+    if (rec) {
+      if (typeof rec._markManualStop === "function") {
+        rec._markManualStop();
+      }
+      try {
+        rec.abort();
+      } catch (e) {
+        try { rec.stop(); } catch (err) {}
+      }
+    }
+    if (!silent) {
+      if (this.speechFeedbackState && this.speechFeedbackState.type === "listening") {
+        this.speechFeedbackState = null;
+      }
+      this.updateSpeechUI();
+    }
+  },
+
+  // Xử lý khi bé chạm nút Micro "🎙️ Đậu nói thử nào!"
+  async toggleSpeechPractice() {
+    if (this.isListening) {
+      this.stopSpeechRecognition(false);
+      return;
+    }
+
+    const word = this.words[this.currentIndex];
+    if (!word || this.isAdvancing || this.isSpeakingRetryPrompt) return;
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      this.failCount = Math.max(this.failCount, 3);
+      this.speechFeedbackState = { type: "unsupported" };
+      this.updateNavigationLockUI();
+      this.updateSpeechUI();
+      return;
+    }
+
+    this.stopSpeechRecognition(true);
+    this.isListening = true;
+    this.speechFeedbackState = { type: "listening", interim: "" };
+    this.updateSpeechUI();
+
+    // Bước 1: Nhả Audio Session sạch sẽ chuẩn Safari iPadOS (stopAudio + AudioContext.suspend + 150ms)
+    if (window.AppState && typeof AppState.prepareForSpeechRecognition === "function") {
+      await AppState.prepareForSpeechRecognition();
+    } else {
+      this.stopRealSound();
+      AppState.stopAudio();
+    }
+
+    const learnScreenEl = document.getElementById("screen-learn");
+    if (!this.isListening || (learnScreenEl && learnScreenEl.classList.contains("hidden"))) {
+      if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+        await AppState.restoreAfterSpeechRecognition();
+      }
+      return;
+    }
+
+    let hasHandledResult = false;
+    let hasHandledError = false;
+    let isManualStop = false;
+    let latestInterimAlts = [];
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = "en-US";
+      recognition.maxAlternatives = 5;
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition._markManualStop = () => {
+        isManualStop = true;
+      };
+      this.speechRecognition = recognition;
+
+      // Timeout 8 giây chống kẹt trạng thái đang nghe trên Safari iPadOS
+      this.speechTimeoutTimer = setTimeout(() => {
+        if (this.speechRecognition === recognition) {
+          try { recognition.stop(); } catch (e) {}
+        }
+      }, 8000);
+
+      recognition.onresult = async (event) => {
+        if (this.speechRecognition !== recognition || hasHandledResult) return;
+
+        const results = event.results;
+        if (!results || results.length === 0) return;
+
+        const lastResult = results[results.length - 1];
+        const alts = [];
+        for (let i = 0; i < lastResult.length && i < 5; i++) {
+          if (lastResult[i] && lastResult[i].transcript) {
+            alts.push(lastResult[i].transcript);
+          }
+        }
+
+        if (lastResult.isFinal) {
+          hasHandledResult = true;
+          if (this.speechTimeoutTimer) {
+            clearTimeout(this.speechTimeoutTimer);
+            this.speechTimeoutTimer = null;
+          }
+          this.isListening = false;
+          this.speechRecognition = null;
+          try { recognition.stop(); } catch (e) {}
+          if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+            await AppState.restoreAfterSpeechRecognition();
+          }
+          this.handleSpeechEvaluationResult(alts);
+        } else if (alts.length > 0) {
+          latestInterimAlts = alts;
+          this.speechFeedbackState = { type: "listening", interim: alts[0] };
+          this.updateSpeechUI();
+        }
+      };
+
+      recognition.onerror = async (event) => {
+        if (hasHandledResult || hasHandledError || isManualStop) return;
+        hasHandledError = true;
+        if (this.speechTimeoutTimer) {
+          clearTimeout(this.speechTimeoutTimer);
+          this.speechTimeoutTimer = null;
+        }
+        this.isListening = false;
+        if (this.speechRecognition === recognition) {
+          this.speechRecognition = null;
+        }
+
+        if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+          await AppState.restoreAfterSpeechRecognition();
+        }
+
+        const errCode = event && event.error ? event.error : "unknown";
+        let shouldPlayRetryTone = false;
+        if (errCode === "not-allowed" || errCode === "service-not-allowed") {
+          this.failCount = Math.max(this.failCount, 3);
+          this.speechFeedbackState = { type: "permission_denied" };
+        } else if (latestInterimAlts.length > 0 && errCode !== "aborted") {
+          hasHandledResult = true;
+          this.handleSpeechEvaluationResult(latestInterimAlts);
+          return;
+        } else {
+          this.failCount += 1;
+          this.speechFeedbackState = { type: "retry", score: 0, text: "" };
+          shouldPlayRetryTone = true;
+        }
+
+        this.updateNavigationLockUI();
+        this.updateSpeechUI();
+        if (shouldPlayRetryTone) {
+          this.playRetryFeedback();
+        }
+      };
+
+      recognition.onend = async () => {
+        if (this.speechTimeoutTimer) {
+          clearTimeout(this.speechTimeoutTimer);
+          this.speechTimeoutTimer = null;
+        }
+        if (this.speechRecognition === recognition) {
+          this.speechRecognition = null;
+        }
+        this.isListening = false;
+
+        if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+          await AppState.restoreAfterSpeechRecognition();
+        }
+
+        if (!hasHandledResult && !hasHandledError) {
+          if (latestInterimAlts.length > 0 && !isManualStop) {
+            hasHandledResult = true;
+            this.handleSpeechEvaluationResult(latestInterimAlts);
+            return;
+          }
+          let shouldPlayRetryTone = false;
+          if (!isManualStop) {
+            this.failCount += 1;
+            this.speechFeedbackState = { type: "retry", score: 0, text: "" };
+            shouldPlayRetryTone = true;
+          } else if (this.speechFeedbackState && this.speechFeedbackState.type === "listening") {
+            this.speechFeedbackState = null;
+          }
+          this.updateNavigationLockUI();
+          this.updateSpeechUI();
+          if (shouldPlayRetryTone) {
+            this.playRetryFeedback();
+          }
+        }
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.warn("Lỗi khởi động nhận diện giọng nói:", err);
+      if (this.speechTimeoutTimer) {
+        clearTimeout(this.speechTimeoutTimer);
+        this.speechTimeoutTimer = null;
+      }
+      this.isListening = false;
+      this.speechRecognition = null;
+      if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+        await AppState.restoreAfterSpeechRecognition();
+      }
+      this.failCount += 1;
+      this.speechFeedbackState = { type: "retry", score: 0, text: "" };
+      this.updateNavigationLockUI();
+      this.updateSpeechUI();
+      this.playRetryFeedback();
+    }
+  },
+
+  // Phân nhánh kết quả chấm điểm phát âm (>= 70% vs < 70%)
+  handleSpeechEvaluationResult(alternatives) {
+    const word = this.words[this.currentIndex];
+    if (!word) return;
+
+    const { bestScore, bestTranscript } = this.evaluatePronunciation(word.en, alternatives);
+
+    if (bestScore >= 70) {
+      const shouldAutoConfirm = !this.isPronunciationPassed && !this.isConfirmingFromSpeech;
+      this.isPronunciationPassed = true;
+      this.speechFeedbackState = { type: "success", score: bestScore, text: bestTranscript };
+      this.updateNavigationLockUI();
+      this.updateSpeechUI();
+
+      if (shouldAutoConfirm) {
+        this.isConfirmingFromSpeech = true;
+        setTimeout(() => {
+          const learnScreenEl = document.getElementById("screen-learn");
+          if (this.isPronunciationPassed && (!learnScreenEl || !learnScreenEl.classList.contains("hidden"))) {
+            this.confirmCorrect(true);
+          }
+        }, 250);
+      }
+    } else {
+      this.failCount += 1;
+      this.speechFeedbackState = { type: "retry", score: bestScore, text: bestTranscript };
+      this.updateNavigationLockUI();
+      this.updateSpeechUI();
+      this.playRetryFeedback();
+    }
+  },
+
+  // Nút dự phòng cho bố mẹ mở khóa thủ công khi failCount >= 3 hoặc môi trường ồn
+  unlockByParent() {
+    this.stopSpeechRecognition(true);
+    this.isSpeakingRetryPrompt = false;
+    this.isPronunciationPassed = true;
+    this.speechFeedbackState = { type: "parent_unlocked" };
+    this.updateNavigationLockUI();
+    this.updateSpeechUI();
+  },
+
   // Bắt đầu màn hình học
   start() {
     if (!AppState.currentTopic || !AppState.currentTopic.words || AppState.currentTopic.words.length === 0) {
@@ -763,11 +1415,17 @@ const LearnScreen = {
     this.isFlipped = false;
     this.isFlipping = false;
     this.isAdvancing = false;
+    this.isPronunciationPassed = false;
+    this.failCount = 0;
+    this.speechFeedbackState = null;
+    this.isConfirmingFromSpeech = false;
+    this.isSpeakingRetryPrompt = false;
     if (this.advanceTimer) {
       clearTimeout(this.advanceTimer);
       this.advanceTimer = null;
     }
     this.playSequence = 0;
+    this.stopSpeechRecognition(true);
     AppState.stopAudio();
     this.stopRealSound();
     this.getAudioContext();
@@ -860,18 +1518,31 @@ const LearnScreen = {
           -webkit-transform: rotateY(180deg);
           z-index: 1;
         }
+        @keyframes speakWaveBar {
+          0%, 100% { transform: scaleY(0.35); opacity: 0.7; }
+          50% { transform: scaleY(1); opacity: 1; }
+        }
+        .speak-wave-bar {
+          width: 4px;
+          height: 20px;
+          border-radius: 9999px;
+          background-color: #ffffff;
+          transform-origin: center;
+          animation: speakWaveBar 0.75s ease-in-out infinite;
+        }
       </style>
 
-      <div class="w-full h-full flex flex-col justify-between max-w-4xl mx-auto py-1 sm:py-2 relative overflow-hidden">
+      <div class="w-full min-h-full flex flex-col justify-between max-w-4xl mx-auto py-1 sm:py-2 relative">
         
         <!-- BANNER PHẢN HỒI KHEN NGỢI LIỀN MẠCH -->
         <div id="learn-feedback-banner" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none transition-all"></div>
 
         <!-- 1. THANH ĐIỀU HƯỚNG PHỤ & TIẾN ĐỘ CHỦ ĐỀ -->
         <div class="flex items-center justify-between w-full px-2 gap-2 shrink-0">
-          <button onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3 sm:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
+          <button id="btn-learn-topics" onclick="AppState.showScreen('screen-home')" aria-label="Quay lại danh sách chủ đề" class="px-3 sm:px-4 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
             <span aria-hidden="true">⬅️</span>
             <span>Chủ đề</span>
+            <span data-lock-badge class="hidden text-xs" aria-hidden="true">🔒</span>
           </button>
 
           <!-- Tiến độ từ vựng trong chủ đề -->
@@ -986,12 +1657,22 @@ const LearnScreen = {
             </div>
           </div>
 
-          <!-- NÚT HÀNH ĐỘNG CHÍNH (HERO ACTION): BÉ CHẠM ĐỂ NGHE CÔ ĐỌC -->
-          <div class="w-full flex justify-center mt-2.5 sm:mt-3">
-            <button id="btn-hero-speak" onclick="LearnScreen.handleHeroSpeak()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full max-w-sm py-3.5 sm:py-4 px-6 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-lg sm:text-xl shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-3 transition-all cursor-pointer">
-              <span id="hero-speak-icon" class="text-2xl sm:text-3xl" aria-hidden="true">🔊</span>
-              <span id="hero-speak-text">${this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc"}</span>
-            </button>
+          <!-- NÚT HÀNH ĐỘNG CHÍNH (HERO ACTION): NGHE CÔ ĐỌC & GÓC BÉ TẬP NÓI -->
+          <div class="w-full flex flex-col items-center mt-2.5 sm:mt-3 px-1">
+            <div class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+              <button id="btn-hero-speak" onclick="LearnScreen.handleHeroSpeak()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-base sm:text-lg shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-2.5 transition-all cursor-pointer">
+                <span id="hero-speak-icon" class="text-xl sm:text-2xl" aria-hidden="true">🔊</span>
+                <span id="hero-speak-text">${this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc"}</span>
+              </button>
+
+              <button id="btn-speak-practice" onclick="LearnScreen.toggleSpeechPractice()" aria-label="Chạm để Đậu nói thử và chấm điểm phát âm" class="w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 active:scale-95 text-white font-black text-base sm:text-lg shadow-lg shadow-pink-300/50 border-2 border-white flex items-center justify-center gap-2 transition-all cursor-pointer">
+                <span class="text-xl sm:text-2xl" aria-hidden="true">🎙️</span>
+                <span>Đậu nói thử nào!</span>
+              </button>
+            </div>
+
+            <!-- Thanh phản hồi sóng âm & chấm điểm phát âm -->
+            <div id="speech-feedback-box" class="mt-2 w-full max-w-xl mx-auto text-center text-xs sm:text-sm font-bold text-slate-500"></div>
           </div>
         </div>
 
@@ -1001,24 +1682,36 @@ const LearnScreen = {
           <button id="btn-confirm-correct" onclick="LearnScreen.confirmCorrect()" aria-label="Bố mẹ xác nhận bé đọc chuẩn để thưởng sao" class="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base shadow-md shadow-emerald-200/50 flex items-center gap-2 border-2 border-white transition-all cursor-pointer">
             <span aria-hidden="true">✅</span>
             <span>Đậu đọc chuẩn rồi (+1 ⭐)</span>
+            <span data-lock-badge class="hidden text-xs" aria-hidden="true">🔒</span>
           </button>
 
           <!-- Bộ nút chuyển từ trước / từ sau -->
           <div class="flex items-center justify-center gap-3 sm:gap-4">
-            <button onclick="LearnScreen.prevWord()" aria-label="Xem từ trước" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+            <button id="btn-prev-word" onclick="LearnScreen.prevWord()" aria-label="Xem từ trước" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
               <span aria-hidden="true">⬅️</span>
               <span>Từ trước</span>
+              <span data-lock-badge class="hidden text-xs" aria-hidden="true">🔒</span>
             </button>
 
-            <button onclick="LearnScreen.nextWord()" aria-label="Sang từ tiếp theo" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+            <button id="btn-next-word" onclick="LearnScreen.nextWord()" aria-label="Sang từ tiếp theo" class="px-4 sm:px-5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-sm sm:text-base shadow-sm border border-slate-200 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
               <span>Từ sau</span>
               <span aria-hidden="true">➡️</span>
+              <span data-lock-badge class="hidden text-xs" aria-hidden="true">🔒</span>
             </button>
           </div>
+
+          <!-- Nút dự phòng dành cho bố mẹ khi failCount >= 3 hoặc thiết bị không có micro -->
+          <button id="btn-parent-unlock" onclick="LearnScreen.unlockByParent()" aria-label="Bố mẹ xác nhận mở khóa giúp Đậu" class="hidden mt-1 px-4 py-1.5 rounded-full bg-amber-100 hover:bg-amber-200 active:scale-95 text-amber-900 font-bold text-xs shadow-sm border border-amber-300 flex items-center gap-1.5 transition-all cursor-pointer">
+            <span aria-hidden="true">🔑</span>
+            <span>Bố mẹ xác nhận giúp Đậu</span>
+          </button>
         </div>
 
       </div>
     `;
+
+    this.updateNavigationLockUI();
+    this.updateSpeechUI();
   },
 
   // Lật thẻ 3D qua lại (khóa chống chạm đúp trong 500ms)
@@ -1063,6 +1756,11 @@ const LearnScreen = {
 
   // Phát từ tiếng Anh và câu nhắc của cô
   async playPrompt() {
+    this.stopSpeechRecognition(true);
+    if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+      await AppState.restoreAfterSpeechRecognition();
+    }
+
     const currentSeq = ++this.playSequence;
     this.isSpeaking = true;
     AppState.stopAudio();
@@ -1095,12 +1793,17 @@ const LearnScreen = {
   },
 
   // Xử lý khi ba mẹ bấm nút Xác nhận bé đọc chuẩn (Mạch học liền mạch, nghe trọn vẹn lời cô)
-  async confirmCorrect() {
-    if (this.isAdvancing) return;
+  async confirmCorrect(fromSpeech = false) {
+    if ((!this.isPronunciationPassed && !fromSpeech) || this.isAdvancing) return;
     const word = this.words[this.currentIndex];
     if (!word) return;
 
+    const activeWordIndex = this.currentIndex;
     this.isAdvancing = true;
+    this.stopSpeechRecognition(true);
+    if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+      await AppState.restoreAfterSpeechRecognition();
+    }
 
     // Khóa tạm nút tích xanh & làm mờ nhẹ chống bấm đè
     const btnConfirm = document.getElementById("btn-confirm-correct");
@@ -1165,12 +1868,16 @@ const LearnScreen = {
     await new Promise(resolve => setTimeout(resolve, 300));
 
     this.isAdvancing = false;
+    this.isConfirmingFromSpeech = false;
     if (feedbackBanner) feedbackBanner.classList.add("hidden");
     if (btnConfirm) {
       btnConfirm.classList.remove("pointer-events-none", "opacity-75");
     }
 
-    this.nextWord();
+    const learnScreenEl = document.getElementById("screen-learn");
+    if (this.currentIndex === activeWordIndex && (!learnScreenEl || !learnScreenEl.classList.contains("hidden"))) {
+      this.nextWord();
+    }
   },
 
   // Lưu từ đã học vào localStorage
@@ -1188,18 +1895,24 @@ const LearnScreen = {
     }
   },
 
-  // Chuyển sang từ kế tiếp
+  // Chuyển sang từ kế tiếp (chốt chặn: bắt buộc đã đạt >= 70% hoặc đã được mở khóa)
   nextWord() {
+    if (!this.isPronunciationPassed) return;
     if (this.advanceTimer) {
       clearTimeout(this.advanceTimer);
       this.advanceTimer = null;
     }
+    this.stopSpeechRecognition(true);
     this.isAdvancing = false;
     this.isFlipping = false;
     AppState.stopAudio();
     this.stopRealSound();
     this.isSpeaking = false;
     this.isFlipped = false; // Luôn hiển thị mặt trước để bé quan sát hình trước
+    this.isPronunciationPassed = false;
+    this.failCount = 0;
+    this.speechFeedbackState = null;
+    this.isConfirmingFromSpeech = false;
 
     if (this.currentIndex < this.words.length - 1) {
       this.currentIndex++;
@@ -1211,12 +1924,14 @@ const LearnScreen = {
     }
   },
 
-  // Quay lại từ trước
+  // Quay lại từ trước (chốt chặn: bắt buộc đã đạt >= 70% hoặc đã được mở khóa)
   prevWord() {
+    if (!this.isPronunciationPassed) return;
     if (this.advanceTimer) {
       clearTimeout(this.advanceTimer);
       this.advanceTimer = null;
     }
+    this.stopSpeechRecognition(true);
     this.isAdvancing = false;
     this.isFlipping = false;
     AppState.stopAudio();
@@ -1225,6 +1940,10 @@ const LearnScreen = {
     this.isFlipped = false; // Luôn hiển thị mặt trước khi lùi
 
     if (this.currentIndex > 0) {
+      this.isPronunciationPassed = false;
+      this.failCount = 0;
+      this.speechFeedbackState = null;
+      this.isConfirmingFromSpeech = false;
       this.currentIndex--;
       this.render();
     }

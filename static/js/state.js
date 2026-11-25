@@ -7,6 +7,8 @@ const AppState = {
   currentTopic: null,
   audioPlayer: new Audio(),
   currentAudioResolve: null,
+  audioCtx: null,
+  playSequence: 0,
 
   // Trạng thái tải âm thanh & tải dữ liệu
   isAudioLoading: false,
@@ -163,6 +165,15 @@ const AppState = {
     }
   },
 
+  // Lấy hoặc khởi tạo AudioContext dùng chung toàn ứng dụng
+  getAudioContext() {
+    if (!this.audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.audioCtx = new AudioCtx();
+    }
+    return this.audioCtx;
+  },
+
   // Dừng âm thanh hiện tại và giải phóng Promise cũ an toàn
   stopAudio() {
     if (this.currentAudioResolve) {
@@ -178,6 +189,58 @@ const AppState = {
       this.audioPlayer.onerror = null;
     }
     this.notifyAudioState(false, false);
+  },
+
+  // Giải phóng hoàn toàn Audio Session trên Safari iPadOS trước khi mở micro SpeechRecognition
+  async prepareForSpeechRecognition() {
+    this.playSequence = (this.playSequence || 0) + 1;
+    this.stopAudio();
+
+    if (this.audioPlayer) {
+      try {
+        this.audioPlayer.pause();
+        this.audioPlayer.currentTime = 0;
+        if (this.audioPlayer.src) {
+          this.audioPlayer.removeAttribute("src");
+        }
+      } catch (e) {}
+    }
+
+    if (window.LearnScreen) {
+      window.LearnScreen.playSequence = (window.LearnScreen.playSequence || 0) + 1;
+      window.LearnScreen.isSpeaking = false;
+      if (typeof window.LearnScreen.stopRealSound === "function") {
+        window.LearnScreen.stopRealSound();
+      }
+    }
+
+    const contexts = new Set(
+      [this.audioCtx, window.LearnScreen && window.LearnScreen.audioCtx].filter(Boolean)
+    );
+    for (const ctx of contexts) {
+      if (ctx.state === "running") {
+        try {
+          await ctx.suspend();
+        } catch (e) {}
+      }
+    }
+
+    // Chờ 150ms để phần cứng âm thanh Safari iPadOS chuyển hẳn sang chế độ thu micro
+    await new Promise(resolve => setTimeout(resolve, 150));
+  },
+
+  // Khôi phục lại AudioContext ngay sau khi thu âm kết thúc để phát chuông & giọng cô
+  async restoreAfterSpeechRecognition() {
+    const contexts = new Set(
+      [this.audioCtx, window.LearnScreen && window.LearnScreen.audioCtx].filter(Boolean)
+    );
+    for (const ctx of contexts) {
+      if (ctx.state === "suspended") {
+        try {
+          await ctx.resume();
+        } catch (e) {}
+      }
+    }
   },
 
   // Phát âm thanh TTS qua backend (Singleton Audio Player chống nghẽn & có Loading State)
@@ -255,6 +318,12 @@ const AppState = {
 
   // Điều hướng chuyển 4 màn hình
   showScreen(screenId) {
+    if (screenId !== "screen-learn" && window.LearnScreen) {
+      if (typeof window.LearnScreen.stopSpeechRecognition === "function") {
+        window.LearnScreen.stopSpeechRecognition(true);
+      }
+    }
+
     const screens = ["screen-home", "screen-learn", "screen-quiz", "screen-racer"];
     screens.forEach(id => {
       const el = document.getElementById(id);
@@ -266,6 +335,20 @@ const AppState = {
         }
       }
     });
+
+    if (screenId === "screen-learn") {
+      if (window.LearnScreen && typeof window.LearnScreen.updateNavigationLockUI === "function") {
+        window.LearnScreen.updateNavigationLockUI();
+      }
+    } else {
+      const btnHome = document.getElementById("btn-home");
+      if (btnHome) {
+        btnHome.disabled = false;
+        btnHome.classList.remove("opacity-40", "pointer-events-none", "cursor-not-allowed");
+        const lockBadge = btnHome.querySelector("[data-lock-badge]");
+        if (lockBadge) lockBadge.classList.add("hidden");
+      }
+    }
   }
 };
 
