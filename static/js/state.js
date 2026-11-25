@@ -9,6 +9,7 @@ const AppState = {
   currentAudioResolve: null,
   audioCtx: null,
   playSequence: 0,
+  speechSessionId: 0,
 
   // Trạng thái tải âm thanh & tải dữ liệu
   isAudioLoading: false,
@@ -191,20 +192,12 @@ const AppState = {
     this.notifyAudioState(false, false);
   },
 
-  // Giải phóng hoàn toàn Audio Session trên Safari iPadOS trước khi mở micro SpeechRecognition
-  async prepareForSpeechRecognition() {
+  // Giải phóng Audio Session đồng bộ 0ms giữ trọn User Gesture trên Safari iPadOS trước khi mở micro
+  prepareForSpeechRecognition() {
+    this.speechSessionId = (this.speechSessionId || 0) + 1;
+    const currentSessionId = this.speechSessionId;
     this.playSequence = (this.playSequence || 0) + 1;
     this.stopAudio();
-
-    if (this.audioPlayer) {
-      try {
-        this.audioPlayer.pause();
-        this.audioPlayer.currentTime = 0;
-        if (this.audioPlayer.src) {
-          this.audioPlayer.removeAttribute("src");
-        }
-      } catch (e) {}
-    }
 
     if (window.LearnScreen) {
       window.LearnScreen.playSequence = (window.LearnScreen.playSequence || 0) + 1;
@@ -220,17 +213,19 @@ const AppState = {
     for (const ctx of contexts) {
       if (ctx.state === "running") {
         try {
-          await ctx.suspend();
+          ctx.suspend().catch(() => {});
         } catch (e) {}
       }
     }
 
-    // Chờ 150ms để phần cứng âm thanh Safari iPadOS chuyển hẳn sang chế độ thu micro
-    await new Promise(resolve => setTimeout(resolve, 150));
+    return currentSessionId;
   },
 
-  // Khôi phục lại AudioContext ngay sau khi thu âm kết thúc để phát chuông & giọng cô
-  async restoreAfterSpeechRecognition() {
+  // Khôi phục lại AudioContext ngay sau khi thu âm kết thúc (chỉ phiên hiện hành mới được thực thi)
+  async restoreAfterSpeechRecognition(sessionId) {
+    if (typeof sessionId === "number" && sessionId !== this.speechSessionId) {
+      return;
+    }
     const contexts = new Set(
       [this.audioCtx, window.LearnScreen && window.LearnScreen.audioCtx].filter(Boolean)
     );

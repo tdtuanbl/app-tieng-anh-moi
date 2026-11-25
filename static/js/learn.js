@@ -15,6 +15,10 @@ const LearnScreen = {
   lastEnPraise: "",
   activeSoundNodes: [],
   isSpeakingRealSound: false,
+  realAudioBuffers: new Map(),
+  realAudioLoading: new Map(),
+  activeRealSoundSource: null,
+  realSoundPlaySeq: 0,
   isPronunciationPassed: false,
   failCount: 0,
   isListening: false,
@@ -24,6 +28,25 @@ const LearnScreen = {
   isConfirmingFromSpeech: false,
   lastRetryPrompt: "",
   isSpeakingRetryPrompt: false,
+
+  // Danh sách 44 âm thanh thu âm đời thực (.mp3) trong /static/sounds/
+  REAL_SOUND_FILES: new Set([
+    // 18 động vật
+    "dog", "cat", "cow", "pig", "chicken", "duck", "lion", "tiger", "elephant",
+    "bird", "sparrow", "frog", "horse", "goat", "monkey", "bee", "snake", "crocodile",
+    // 26 phương tiện
+    "car", "taxi", "bus", "truck", "dump_truck", "pickup_truck", "container_truck",
+    "van", "motorbike", "scooter", "fire_truck", "police_car", "ambulance",
+    "train", "bullet_train", "airplane", "helicopter", "ship", "ferry", "boat",
+    "bicycle", "cyclo", "tractor", "excavator", "bulldozer", "submarine"
+  ]),
+
+  REAL_SOUND_ALIASES: {
+    rooster: "chicken",
+    hen: "chicken",
+    puppy: "dog",
+    kitten: "cat"
+  },
 
   VI_PRAISES: [
     "Giỏi quá Đậu ơi, con đọc xuất sắc lắm!",
@@ -145,8 +168,21 @@ const LearnScreen = {
     }
   },
 
-  // Dừng toàn bộ các node âm thanh thực tế đang phát
+  // Dừng toàn bộ âm thanh thực tế đang phát (AudioBufferSourceNode lẫn Web Audio synth fallback)
   stopRealSound() {
+    this.realSoundPlaySeq = (this.realSoundPlaySeq || 0) + 1;
+    if (this.activeRealSoundSource) {
+      const { src, gain, timer, resolve } = this.activeRealSoundSource;
+      this.activeRealSoundSource = null;
+      if (timer) clearTimeout(timer);
+      try { src.onended = null; } catch (e) {}
+      try { src.stop(0); } catch (e) {}
+      try { src.disconnect(); } catch (e) {}
+      try { gain.disconnect(); } catch (e) {}
+      if (typeof resolve === "function") {
+        try { resolve(); } catch (e) {}
+      }
+    }
     if (this.activeSoundNodes && this.activeSoundNodes.length > 0) {
       this.activeSoundNodes.forEach(node => {
         try { node.stop(); } catch (e) {}
@@ -156,45 +192,185 @@ const LearnScreen = {
     this.isSpeakingRealSound = false;
   },
 
-  // Kiểm tra xem từ vựng có hỗ trợ âm thanh thực tế Web Audio không
-  hasRealSound(wordId) {
-    return !!this.getSoundKey(wordId);
+  // Lấy ID file .mp3 tương ứng trong /static/sounds/ (44 âm thanh đời thực + alias)
+  getRealSoundFileId(wordId) {
+    if (!wordId) return null;
+    const id = wordId.toLowerCase();
+    const mapped = this.REAL_SOUND_ALIASES[id] || id;
+    return this.REAL_SOUND_FILES.has(mapped) ? mapped : null;
   },
 
-  // Ánh xạ từ vựng sang key âm thanh thực tế
+  // Kiểm tra xem từ vựng có hỗ trợ âm thanh thực tế không
+  hasRealSound(wordId) {
+    return !!(this.getRealSoundFileId(wordId) || this.getSoundKey(wordId));
+  },
+
+  // Tải trước & giải mã MP3 qua AudioContext.decodeAudioData() vào RAM để phát 0ms
+  async preloadRealSound(wordId) {
+    const mappedId = this.getRealSoundFileId(wordId);
+    if (!mappedId) return null;
+
+    if (this.realAudioBuffers.has(mappedId)) {
+      return this.realAudioBuffers.get(mappedId);
+    }
+    if (this.realAudioLoading.has(mappedId)) {
+      return this.realAudioLoading.get(mappedId);
+    }
+
+    const loadPromise = (async () => {
+      try {
+        const ctx = this.getAudioContext();
+        if (!ctx) return null;
+        const res = await fetch(`/static/sounds/${mappedId}.mp3?v=34`);
+        if (!res.ok) return null;
+        const arrayBuf = await res.arrayBuffer();
+        const audioBuf = await new Promise((resolve, reject) => {
+          const maybePromise = ctx.decodeAudioData(arrayBuf, resolve, reject);
+          if (maybePromise && typeof maybePromise.then === "function") {
+            maybePromise.then(resolve).catch(reject);
+          }
+        });
+        if (audioBuf) {
+          this.realAudioBuffers.set(mappedId, audioBuf);
+        }
+        return audioBuf || null;
+      } catch (err) {
+        console.warn(`Lỗi nạp âm thanh thực tế ${mappedId}:`, err);
+        return null;
+      } finally {
+        this.realAudioLoading.delete(mappedId);
+      }
+    })();
+
+    this.realAudioLoading.set(mappedId, loadPromise);
+    return loadPromise;
+  },
+
+  // Tự động nạp trước âm thanh cho từ hiện tại và từ kế tiếp
+  preloadAdjacentRealSounds() {
+    if (!this.words || this.words.length === 0) return;
+    const cur = this.words[this.currentIndex];
+    const next = this.words[this.currentIndex + 1];
+    if (cur && cur.id) this.preloadRealSound(cur.id);
+    if (next && next.id) this.preloadRealSound(next.id);
+  },
+
+  // Ánh xạ từ vựng sang key tổng hợp Web Audio (chỉ dùng làm fallback khi mạng chậm/chưa giải mã MP3)
   getSoundKey(wordId) {
     if (!wordId) return null;
     const id = wordId.toLowerCase();
-    // 8 nhóm phương tiện giao thông (Vehicles)
+    // Phương tiện giao thông
     if (id === "fire_truck") return "fire_truck";
     if (id === "police_car") return "police_car";
     if (id === "ambulance") return "ambulance";
-    if (["car", "bus", "taxi", "pickup_truck", "van", "truck"].includes(id)) return "car_horn";
+    if (["car", "bus", "taxi", "pickup_truck", "van", "truck", "dump_truck", "container_truck"].includes(id)) return "car_horn";
     if (["train", "bullet_train"].includes(id)) return "train_whistle";
     if (["bicycle", "cyclo", "tricycle"].includes(id)) return "bicycle_bell";
-    if (["ship", "ferry", "boat", "speedboat"].includes(id)) return "ship_horn";
-    if (["airplane", "rocket", "helicopter"].includes(id)) return "engine_rumble";
+    if (["ship", "ferry", "boat", "speedboat", "submarine"].includes(id)) return "ship_horn";
+    if (["airplane", "rocket", "helicopter", "motorbike", "scooter", "tractor", "excavator", "bulldozer"].includes(id)) return "engine_rumble";
 
-    // 9 nhóm động vật (Animals)
+    // Động vật
     if (["cat", "kitten"].includes(id)) return "cat_meow";
     if (["dog", "puppy"].includes(id)) return "dog_bark";
     if (id === "cow") return "cow_moo";
     if (id === "pig") return "pig_oink";
     if (["chicken", "rooster", "hen"].includes(id)) return "rooster_crow";
-    if (id === "duck") return "duck_quack";
-    if (["lion", "tiger"].includes(id)) return "lion_roar";
+    if (["duck", "frog"].includes(id)) return "duck_quack";
+    if (["lion", "tiger", "crocodile"].includes(id)) return "lion_roar";
     if (id === "elephant") return "elephant_trumpet";
-    if (["bird", "sparrow"].includes(id)) return "bird_chirp";
+    if (["bird", "sparrow", "bee", "monkey", "horse", "goat", "snake"].includes(id)) return "bird_chirp";
 
     return null;
   },
 
-  // Phát 17 hiệu ứng âm thanh thực tế bằng Web Audio API thuần (0KB tải ngoài, 0ms trễ, 1.0-1.2s)
-  playRealSound(wordId) {
+  // Phát âm thanh thu âm đời thực qua AudioBufferSourceNode 0ms (fallback Web Audio nếu mạng chậm)
+  async playRealSound(wordId) {
+    this.stopRealSound();
+    const mySeq = ++this.realSoundPlaySeq;
+
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      try { await ctx.resume(); } catch (e) {}
+    }
+    if (mySeq !== this.realSoundPlaySeq) return;
+
+    const mappedId = this.getRealSoundFileId(wordId);
+    if (mappedId) {
+      let buffer = this.realAudioBuffers.get(mappedId) || null;
+      if (!buffer) {
+        buffer = await Promise.race([
+          this.preloadRealSound(mappedId),
+          new Promise(resolve => setTimeout(() => resolve(null), 400))
+        ]);
+      }
+      if (mySeq !== this.realSoundPlaySeq) return;
+
+      if (buffer) {
+        this.isSpeakingRealSound = true;
+        return new Promise((resolve) => {
+          try {
+            const src = ctx.createBufferSource();
+            const gain = ctx.createGain();
+            src.buffer = buffer;
+            gain.gain.setValueAtTime(1.0, ctx.currentTime);
+            src.connect(gain);
+            gain.connect(ctx.destination);
+
+            let settled = false;
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+              if (this.activeRealSoundSource && this.activeRealSoundSource.src === src) {
+                this.activeRealSoundSource = null;
+              }
+              this.isSpeakingRealSound = false;
+              try { src.onended = null; } catch (e) {}
+              try { src.disconnect(); } catch (e) {}
+              try { gain.disconnect(); } catch (e) {}
+              resolve();
+            };
+
+            const maxWaitMs = Math.min(1600, Math.max(300, Math.ceil((buffer.duration || 1.5) * 1000) + 80));
+            const timer = setTimeout(() => {
+              try { src.stop(0); } catch (e) {}
+              finish();
+            }, maxWaitMs);
+
+            this.activeRealSoundSource = {
+              src,
+              gain,
+              timer,
+              resolve: () => {
+                clearTimeout(timer);
+                finish();
+              }
+            };
+            src.onended = () => {
+              clearTimeout(timer);
+              finish();
+            };
+            src.start(0);
+          } catch (err) {
+            console.warn("Lỗi phát AudioBufferSourceNode:", err);
+            this.isSpeakingRealSound = false;
+            resolve();
+          }
+        });
+      }
+    }
+
+    return this.playSynthRealSound(wordId, mySeq);
+  },
+
+  // Bộ tổng hợp Web Audio dự phòng khi file MP3 chưa kịp giải mã hoặc ngoại tuyến
+  playSynthRealSound(wordId, seqGuard) {
+    if (typeof seqGuard === "number" && seqGuard !== this.realSoundPlaySeq) {
+      return Promise.resolve();
+    }
     const soundKey = this.getSoundKey(wordId);
     if (!soundKey) return Promise.resolve();
 
-    this.stopRealSound();
     const ctx = this.getAudioContext();
     if (!ctx) return Promise.resolve();
 
@@ -1139,8 +1315,11 @@ const LearnScreen = {
     }
   },
 
-  // Dừng phiên nhận diện giọng nói đang hoạt động một cách an toàn
+  // Dừng phiên nhận diện giọng nói đang hoạt động một cách an toàn và vô hiệu hóa callback trễ
   stopSpeechRecognition(silent = false) {
+    if (window.AppState) {
+      AppState.speechSessionId = (AppState.speechSessionId || 0) + 1;
+    }
     if (this.speechTimeoutTimer) {
       clearTimeout(this.speechTimeoutTimer);
       this.speechTimeoutTimer = null;
@@ -1163,11 +1342,14 @@ const LearnScreen = {
         this.speechFeedbackState = null;
       }
       this.updateSpeechUI();
+      if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+        AppState.restoreAfterSpeechRecognition();
+      }
     }
   },
 
-  // Xử lý khi bé chạm nút Micro "🎙️ Đậu nói thử nào!"
-  async toggleSpeechPractice() {
+  // Xử lý khi bé chạm nút Micro "🎙️ Đậu nói thử nào!" — chạy đồng bộ 0ms giữ trọn User Gesture
+  toggleSpeechPractice() {
     if (this.isListening) {
       this.stopSpeechRecognition(false);
       return;
@@ -1185,26 +1367,16 @@ const LearnScreen = {
       return;
     }
 
+    // Dọn dẹp phiên cũ và giải phóng Audio Session đồng bộ 0ms ngay trong User Gesture (không await)
     this.stopSpeechRecognition(true);
+    const sessionId = (window.AppState && typeof AppState.prepareForSpeechRecognition === "function")
+      ? AppState.prepareForSpeechRecognition()
+      : Date.now();
+    const isStaleSession = () => !!(window.AppState && sessionId !== AppState.speechSessionId);
+
     this.isListening = true;
     this.speechFeedbackState = { type: "listening", interim: "" };
     this.updateSpeechUI();
-
-    // Bước 1: Nhả Audio Session sạch sẽ chuẩn Safari iPadOS (stopAudio + AudioContext.suspend + 150ms)
-    if (window.AppState && typeof AppState.prepareForSpeechRecognition === "function") {
-      await AppState.prepareForSpeechRecognition();
-    } else {
-      this.stopRealSound();
-      AppState.stopAudio();
-    }
-
-    const learnScreenEl = document.getElementById("screen-learn");
-    if (!this.isListening || (learnScreenEl && learnScreenEl.classList.contains("hidden"))) {
-      if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
-        await AppState.restoreAfterSpeechRecognition();
-      }
-      return;
-    }
 
     let hasHandledResult = false;
     let hasHandledError = false;
@@ -1225,13 +1397,13 @@ const LearnScreen = {
 
       // Timeout 8 giây chống kẹt trạng thái đang nghe trên Safari iPadOS
       this.speechTimeoutTimer = setTimeout(() => {
-        if (this.speechRecognition === recognition) {
+        if (!isStaleSession() && this.speechRecognition === recognition) {
           try { recognition.stop(); } catch (e) {}
         }
       }, 8000);
 
       recognition.onresult = async (event) => {
-        if (this.speechRecognition !== recognition || hasHandledResult) return;
+        if (isStaleSession() || this.speechRecognition !== recognition || hasHandledResult) return;
 
         const results = event.results;
         if (!results || results.length === 0) return;
@@ -1254,8 +1426,9 @@ const LearnScreen = {
           this.speechRecognition = null;
           try { recognition.stop(); } catch (e) {}
           if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
-            await AppState.restoreAfterSpeechRecognition();
+            await AppState.restoreAfterSpeechRecognition(sessionId);
           }
+          if (isStaleSession()) return;
           this.handleSpeechEvaluationResult(alts);
         } else if (alts.length > 0) {
           latestInterimAlts = alts;
@@ -1265,7 +1438,7 @@ const LearnScreen = {
       };
 
       recognition.onerror = async (event) => {
-        if (hasHandledResult || hasHandledError || isManualStop) return;
+        if (isStaleSession() || hasHandledResult || hasHandledError || isManualStop) return;
         hasHandledError = true;
         if (this.speechTimeoutTimer) {
           clearTimeout(this.speechTimeoutTimer);
@@ -1277,8 +1450,9 @@ const LearnScreen = {
         }
 
         if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
-          await AppState.restoreAfterSpeechRecognition();
+          await AppState.restoreAfterSpeechRecognition(sessionId);
         }
+        if (isStaleSession()) return;
 
         const errCode = event && event.error ? event.error : "unknown";
         let shouldPlayRetryTone = false;
@@ -1303,6 +1477,7 @@ const LearnScreen = {
       };
 
       recognition.onend = async () => {
+        if (isStaleSession()) return;
         if (this.speechTimeoutTimer) {
           clearTimeout(this.speechTimeoutTimer);
           this.speechTimeoutTimer = null;
@@ -1313,8 +1488,9 @@ const LearnScreen = {
         this.isListening = false;
 
         if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
-          await AppState.restoreAfterSpeechRecognition();
+          await AppState.restoreAfterSpeechRecognition(sessionId);
         }
+        if (isStaleSession()) return;
 
         if (!hasHandledResult && !hasHandledError) {
           if (latestInterimAlts.length > 0 && !isManualStop) {
@@ -1338,6 +1514,7 @@ const LearnScreen = {
         }
       };
 
+      // Gọi start() ngay trong cùng call-stack đồng bộ của thao tác chạm tay
       recognition.start();
     } catch (err) {
       console.warn("Lỗi khởi động nhận diện giọng nói:", err);
@@ -1348,13 +1525,15 @@ const LearnScreen = {
       this.isListening = false;
       this.speechRecognition = null;
       if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
-        await AppState.restoreAfterSpeechRecognition();
+        AppState.restoreAfterSpeechRecognition(sessionId);
       }
-      this.failCount += 1;
-      this.speechFeedbackState = { type: "retry", score: 0, text: "" };
-      this.updateNavigationLockUI();
-      this.updateSpeechUI();
-      this.playRetryFeedback();
+      if (!isStaleSession()) {
+        this.failCount += 1;
+        this.speechFeedbackState = { type: "retry", score: 0, text: "" };
+        this.updateNavigationLockUI();
+        this.updateSpeechUI();
+        this.playRetryFeedback();
+      }
     }
   },
 
@@ -1398,6 +1577,7 @@ const LearnScreen = {
     this.speechFeedbackState = { type: "parent_unlocked" };
     this.updateNavigationLockUI();
     this.updateSpeechUI();
+    this.preloadAdjacentRealSounds();
   },
 
   // Bắt đầu màn hình học
@@ -1712,6 +1892,7 @@ const LearnScreen = {
 
     this.updateNavigationLockUI();
     this.updateSpeechUI();
+    this.preloadAdjacentRealSounds();
   },
 
   // Lật thẻ 3D qua lại (khóa chống chạm đúp trong 500ms)
