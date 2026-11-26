@@ -5,6 +5,7 @@ const BlasterScreen = {
   currentIndex: 0,
   totalTargets: 5,
   combo: 0,
+  failCount: 0,
   starsEarned: 0,
   isFiring: false,
   isDestroyed: false,
@@ -130,9 +131,11 @@ const BlasterScreen = {
     this.totalTargets = this.words.length;
     this.currentIndex = 0;
     this.combo = 0;
+    this.failCount = 0;
     this.starsEarned = 0;
     this.isFiring = false;
     this.isDestroyed = false;
+    this.failCount = 0;
     this.isVictory = false;
     this.warpTimer = 0;
 
@@ -231,9 +234,8 @@ const BlasterScreen = {
             <span>Đọc từ để bắn laser!</span>
           </button>
 
-          <button id="btn-blaster-assist" onclick="BlasterScreen.triggerAssistFire()" aria-label="Bắn trợ giúp cho bé" class="px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl bg-indigo-500/40 hover:bg-indigo-500/60 active:scale-95 text-indigo-100 font-bold text-xs sm:text-sm border border-indigo-300/40 flex items-center gap-1.5 transition-all cursor-pointer">
-            <span aria-hidden="true">⚡</span>
-            <span>Bắn trợ giúp</span>
+          <button id="btn-blaster-assist" onclick="BlasterScreen.triggerAssistFire()" disabled aria-label="Bắn trợ giúp cho bé" class="px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl bg-slate-700/60 text-slate-300 font-bold text-xs sm:text-sm border border-slate-500/40 flex items-center gap-1.5 transition-all opacity-50 cursor-not-allowed">
+            <span>🔒 Bắn trợ giúp (0/3 lần thử)</span>
           </button>
         </div>
 
@@ -347,6 +349,7 @@ const BlasterScreen = {
 
     this.isFiring = false;
     this.isDestroyed = false;
+    this.failCount = 0;
 
     // Thiên thạch bắt đầu bên phải, bay vào dứt khoát và dừng ở vùng an toàn
     this.asteroid.x = this.width + this.asteroid.radius + 40;
@@ -375,6 +378,7 @@ const BlasterScreen = {
 
     this.updateGemsUI();
     this.updateComboUI();
+    this.updateAssistButtonUI();
     this.setBanner(`🎯 Thiên thạch ${this.currentIndex + 1}/${this.totalTargets}: Đọc "${word.en}" để phóng đạn Plasma!`);
 
     // Tự động đọc mẫu nhẹ khi khóa mục tiêu mới
@@ -413,6 +417,20 @@ const BlasterScreen = {
       if (val) val.textContent = String(this.combo);
     } else {
       pill.classList.add("hidden");
+    }
+  },
+
+  updateAssistButtonUI() {
+    const btn = document.getElementById("btn-blaster-assist");
+    if (!btn) return;
+    if (this.failCount < 3) {
+      btn.disabled = true;
+      btn.className = "px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl bg-slate-700/60 text-slate-300 font-bold text-xs sm:text-sm border border-slate-500/40 flex items-center gap-1.5 transition-all opacity-50 cursor-not-allowed";
+      btn.innerHTML = `<span>🔒 Bắn trợ giúp (${this.failCount}/3 lần thử)</span>`;
+    } else {
+      btn.disabled = false;
+      btn.className = "px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-400 active:scale-95 text-white font-black text-xs sm:text-sm shadow-lg shadow-indigo-500/40 border-2 border-indigo-200 flex items-center gap-1.5 transition-all cursor-pointer";
+      btn.innerHTML = `<span>⚡ Bắn trợ giúp (Đã mở)</span>`;
     }
   },
 
@@ -622,6 +640,8 @@ const BlasterScreen = {
 
   // Phản hồi nhẹ nhàng khi bé phát âm < 70%: tia lửa xẹt nhẹ + thiên thạch rung lắc + lời nhắc dịu dàng
   handleLowPronunciationScore(score) {
+    this.failCount += 1;
+    this.updateAssistButtonUI();
     this.setBanner(`✨ ${score}% — Gần trúng rồi! Đọc to và rõ hơn chút nữa nhé!`);
     this.fireMissSparks();
     this.playSparkFizzleSound();
@@ -679,6 +699,7 @@ const BlasterScreen = {
   },
 
   triggerAssistFire() {
+    if (this.failCount < 3) return;
     if (this.isFiring || this.isDestroyed || this.isVictory || !this.isActive) return;
     this.stopSpeechRecognition(false);
     this.combo = 0;

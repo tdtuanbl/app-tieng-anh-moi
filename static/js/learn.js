@@ -18,6 +18,7 @@ const LearnScreen = {
   realAudioBuffers: new Map(),
   realAudioLoading: new Map(),
   activeRealSoundSource: null,
+  activeHtmlAudio: null,
   realSoundPlaySeq: 0,
   isPronunciationPassed: false,
   failCount: 0,
@@ -128,7 +129,7 @@ const LearnScreen = {
     if (window.AppState && !AppState.audioCtx && this.audioCtx) {
       AppState.audioCtx = this.audioCtx;
     }
-    if (this.audioCtx && this.audioCtx.state === "suspended") {
+    if (this.audioCtx && this.audioCtx.state !== "running" && this.audioCtx.state !== "closed") {
       this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
@@ -179,6 +180,18 @@ const LearnScreen = {
       try { src.stop(0); } catch (e) {}
       try { src.disconnect(); } catch (e) {}
       try { gain.disconnect(); } catch (e) {}
+      if (typeof resolve === "function") {
+        try { resolve(); } catch (e) {}
+      }
+    }
+    if (this.activeHtmlAudio) {
+      const { audio, timer, resolve } = this.activeHtmlAudio;
+      this.activeHtmlAudio = null;
+      if (timer) clearTimeout(timer);
+      try { audio.onended = null; } catch (e) {}
+      try { audio.onerror = null; } catch (e) {}
+      try { audio.pause(); } catch (e) {}
+      try { audio.currentTime = 0; } catch (e) {}
       if (typeof resolve === "function") {
         try { resolve(); } catch (e) {}
       }
@@ -283,84 +296,158 @@ const LearnScreen = {
     return null;
   },
 
-  // Phát âm thanh thu âm đời thực qua AudioBufferSourceNode 0ms (fallback Web Audio nếu mạng chậm)
-  async playRealSound(wordId) {
+  // Phát âm thanh thu âm đời thực 0ms (ưu tiên AudioBufferSourceNode, fallback HTMLAudioElement & Web Audio cho Safari iPadOS)
+  playRealSound(wordId) {
     this.stopRealSound();
     const mySeq = ++this.realSoundPlaySeq;
 
-    const ctx = this.getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      try { await ctx.resume(); } catch (e) {}
+    const ctx = (window.AppState && typeof AppState.getAudioContext === "function")
+      ? AppState.getAudioContext()
+      : this.getAudioContext();
+    if (ctx) {
+      this.audioCtx = ctx;
+      if (ctx.state !== "running" && ctx.state !== "closed") {
+        ctx.resume().catch(() => {});
+      }
     }
-    if (mySeq !== this.realSoundPlaySeq) return;
 
     const mappedId = this.getRealSoundFileId(wordId);
     if (mappedId) {
-      let buffer = this.realAudioBuffers.get(mappedId) || null;
+      const buffer = this.realAudioBuffers.get(mappedId) || null;
+      if (buffer && ctx && ctx.state === "running") {
+        return this.playBufferedRealSound(ctx, buffer, mappedId, wordId, mySeq);
+      }
       if (!buffer) {
-        buffer = await Promise.race([
-          this.preloadRealSound(mappedId),
-          new Promise(resolve => setTimeout(() => resolve(null), 400))
-        ]);
+        this.preloadRealSound(mappedId);
       }
-      if (mySeq !== this.realSoundPlaySeq) return;
-
-      if (buffer) {
-        this.isSpeakingRealSound = true;
-        return new Promise((resolve) => {
-          try {
-            const src = ctx.createBufferSource();
-            const gain = ctx.createGain();
-            src.buffer = buffer;
-            gain.gain.setValueAtTime(1.0, ctx.currentTime);
-            src.connect(gain);
-            gain.connect(ctx.destination);
-
-            let settled = false;
-            const finish = () => {
-              if (settled) return;
-              settled = true;
-              if (this.activeRealSoundSource && this.activeRealSoundSource.src === src) {
-                this.activeRealSoundSource = null;
-              }
-              this.isSpeakingRealSound = false;
-              try { src.onended = null; } catch (e) {}
-              try { src.disconnect(); } catch (e) {}
-              try { gain.disconnect(); } catch (e) {}
-              resolve();
-            };
-
-            const maxWaitMs = Math.min(1600, Math.max(300, Math.ceil((buffer.duration || 1.5) * 1000) + 80));
-            const timer = setTimeout(() => {
-              try { src.stop(0); } catch (e) {}
-              finish();
-            }, maxWaitMs);
-
-            this.activeRealSoundSource = {
-              src,
-              gain,
-              timer,
-              resolve: () => {
-                clearTimeout(timer);
-                finish();
-              }
-            };
-            src.onended = () => {
-              clearTimeout(timer);
-              finish();
-            };
-            src.start(0);
-          } catch (err) {
-            console.warn("Lỗi phát AudioBufferSourceNode:", err);
-            this.isSpeakingRealSound = false;
-            resolve();
-          }
-        });
-      }
+      return this.playHtmlRealSound(mappedId, wordId, mySeq);
     }
 
     return this.playSynthRealSound(wordId, mySeq);
+  },
+
+  // Phát AudioBuffer đã giải mã sẵn trong RAM với độ trễ 0ms
+  playBufferedRealSound(ctx, buffer, mappedId, wordId, mySeq) {
+    if (mySeq !== this.realSoundPlaySeq) return Promise.resolve();
+    this.isSpeakingRealSound = true;
+    return new Promise((resolve) => {
+      try {
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        src.buffer = buffer;
+        gain.gain.setValueAtTime(1.0, ctx.currentTime);
+        src.connect(gain);
+        gain.connect(ctx.destination);
+
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (this.activeRealSoundSource && this.activeRealSoundSource.src === src) {
+            this.activeRealSoundSource = null;
+          }
+          this.isSpeakingRealSound = false;
+          try { src.onended = null; } catch (e) {}
+          try { src.disconnect(); } catch (e) {}
+          try { gain.disconnect(); } catch (e) {}
+          resolve();
+        };
+
+        const maxWaitMs = Math.min(1600, Math.max(300, Math.ceil((buffer.duration || 1.5) * 1000) + 80));
+        const timer = setTimeout(() => {
+          try { src.stop(0); } catch (e) {}
+          finish();
+        }, maxWaitMs);
+
+        this.activeRealSoundSource = {
+          src,
+          gain,
+          timer,
+          resolve: () => {
+            clearTimeout(timer);
+            finish();
+          }
+        };
+        src.onended = () => {
+          clearTimeout(timer);
+          finish();
+        };
+        src.start(0);
+      } catch (err) {
+        console.warn("Lỗi phát AudioBufferSourceNode, chuyển sang HTMLAudioElement:", err);
+        this.isSpeakingRealSound = false;
+        this.playHtmlRealSound(mappedId, wordId, mySeq).then(resolve);
+      }
+    });
+  },
+
+  // Phát trực tiếp file MP3 bằng HTMLAudioElement đồng bộ trong User Gesture (vượt lỗi Safari iPadOS interrupted)
+  playHtmlRealSound(mappedId, wordId, mySeq) {
+    if (mySeq !== this.realSoundPlaySeq) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      let audio = null;
+      let timer = null;
+
+      const cleanup = () => {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        if (this.activeHtmlAudio && this.activeHtmlAudio.audio === audio) {
+          this.activeHtmlAudio = null;
+        }
+        this.isSpeakingRealSound = false;
+        if (audio) {
+          try { audio.onended = null; } catch (e) {}
+          try { audio.onerror = null; } catch (e) {}
+        }
+      };
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve();
+      };
+
+      const fallbackToSynth = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (mySeq === this.realSoundPlaySeq) {
+          this.playSynthRealSound(wordId, mySeq).then(resolve);
+        } else {
+          resolve();
+        }
+      };
+
+      try {
+        audio = new Audio(`/static/sounds/${mappedId}.mp3?v=34`);
+        audio.playsInline = true;
+        audio.preload = "auto";
+        this.isSpeakingRealSound = true;
+
+        timer = setTimeout(() => {
+          try { audio.pause(); } catch (e) {}
+          try { audio.currentTime = 0; } catch (e) {}
+          finish();
+        }, 2000);
+
+        this.activeHtmlAudio = { audio, timer, resolve: finish };
+        audio.onended = finish;
+        audio.onerror = fallbackToSynth;
+
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {
+            fallbackToSynth();
+          });
+        }
+      } catch (err) {
+        fallbackToSynth();
+      }
+    });
   },
 
   // Bộ tổng hợp Web Audio dự phòng khi file MP3 chưa kịp giải mã hoặc ngoại tuyến
@@ -1589,7 +1676,13 @@ const LearnScreen = {
         return;
       }
     }
-    this.words = AppState.currentTopic.words;
+    // Xáo trộn Fisher-Yates bản sao danh sách từ mỗi lần mở chủ đề
+    const shuffledWords = [...AppState.currentTopic.words];
+    for (let i = shuffledWords.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+    }
+    this.words = shuffledWords;
     this.currentIndex = 0;
     this.isSpeaking = false;
     this.isFlipped = false;
