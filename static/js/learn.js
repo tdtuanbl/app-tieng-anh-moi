@@ -23,6 +23,7 @@ const LearnScreen = {
   isPronunciationPassed: false,
   failCount: 0,
   isListening: false,
+  speechSessionId: 0,
   speechRecognition: null,
   speechTimeoutTimer: null,
   speechFeedbackState: null,
@@ -335,7 +336,7 @@ const LearnScreen = {
         const src = ctx.createBufferSource();
         const gain = ctx.createGain();
         src.buffer = buffer;
-        gain.gain.setValueAtTime(1.0, ctx.currentTime);
+        gain.gain.setValueAtTime(0.35, ctx.currentTime);
         src.connect(gain);
         gain.connect(ctx.destination);
 
@@ -424,6 +425,7 @@ const LearnScreen = {
 
       try {
         audio = new Audio(`/static/sounds/${mappedId}.mp3?v=34`);
+        audio.volume = 0.35;
         audio.playsInline = true;
         audio.preload = "auto";
         this.isSpeakingRealSound = true;
@@ -886,16 +888,36 @@ const LearnScreen = {
     });
   },
 
-  // Xử lý khi bấm nút nghe âm thanh thực tế ở mặt trước thẻ
-  handleFrontSoundClick(wordId) {
+  // Xử lý khi bấm nút nghe âm thanh thực tế ở mặt trước thẻ (đọc từ trước, phát tiếng động 0.35 sau)
+  async handleFrontSoundClick(wordId) {
     this.stopSpeechRecognition(true);
     AppState.stopAudio();
+    this.stopRealSound();
     this.isSpeaking = false;
+    this.getAudioContext();
+
+    const currentSeq = ++this.playSequence;
     const btn = document.getElementById("btn-front-sound");
     if (btn) {
       btn.classList.add("scale-105", "ring-2", "ring-amber-300");
       setTimeout(() => btn.classList.remove("scale-105", "ring-2", "ring-amber-300"), 1200);
     }
+
+    const word = (this.words || []).find(w => w.id === wordId) || (this.words && this.words[this.currentIndex]);
+    if (word && word.en && window.AppState && typeof AppState.speakText === "function") {
+      this.isSpeaking = true;
+      try {
+        await AppState.speakText(word.en, "en");
+      } finally {
+        if (this.playSequence === currentSeq) {
+          this.isSpeaking = false;
+        }
+      }
+      if (this.playSequence !== currentSeq) return;
+      await new Promise(r => setTimeout(r, 150));
+      if (this.playSequence !== currentSeq) return;
+    }
+
     this.playRealSound(wordId);
   },
 
@@ -1402,8 +1424,9 @@ const LearnScreen = {
     }
   },
 
-  // Dừng phiên nhận diện giọng nói đang hoạt động một cách an toàn và vô hiệu hóa callback trễ
+  // Dừng phiên nhận diện giọng nói đang hoạt động một cách an toàn và gỡ sạch toàn bộ handler
   stopSpeechRecognition(silent = false) {
+    this.speechSessionId = (this.speechSessionId || 0) + 1;
     if (window.AppState) {
       AppState.speechSessionId = (AppState.speechSessionId || 0) + 1;
     }
@@ -1414,10 +1437,19 @@ const LearnScreen = {
     const rec = this.speechRecognition;
     this.speechRecognition = null;
     this.isListening = false;
+    if (window.AppState) {
+      AppState.isSpeechRecording = false;
+    }
     if (rec) {
       if (typeof rec._markManualStop === "function") {
         rec._markManualStop();
       }
+      try {
+        rec.onstart = null;
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+      } catch (e) {}
       try {
         rec.abort();
       } catch (e) {
@@ -1456,10 +1488,11 @@ const LearnScreen = {
 
     // Dọn dẹp phiên cũ và giải phóng Audio Session đồng bộ 0ms ngay trong User Gesture (không await)
     this.stopSpeechRecognition(true);
+    const localSessionId = ++this.speechSessionId;
     const sessionId = (window.AppState && typeof AppState.prepareForSpeechRecognition === "function")
       ? AppState.prepareForSpeechRecognition()
       : Date.now();
-    const isStaleSession = () => !!(window.AppState && sessionId !== AppState.speechSessionId);
+    const isStaleSession = () => (localSessionId !== this.speechSessionId) || !!(window.AppState && sessionId !== AppState.speechSessionId);
 
     this.isListening = true;
     this.speechFeedbackState = { type: "listening", interim: "" };
@@ -1482,12 +1515,20 @@ const LearnScreen = {
       };
       this.speechRecognition = recognition;
 
-      // Timeout 8 giây chống kẹt trạng thái đang nghe trên Safari iPadOS
+      // Watchdog 7000ms: tự giải phóng mic & đặt lại UI nếu Safari iPadOS nuốt mất onend/onresult
       this.speechTimeoutTimer = setTimeout(() => {
-        if (!isStaleSession() && this.speechRecognition === recognition) {
-          try { recognition.stop(); } catch (e) {}
+        if (!isStaleSession() && this.isListening) {
+          this.stopSpeechRecognition(false);
+          if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+            AppState.restoreAfterSpeechRecognition(sessionId);
+          }
+          const feedbackBox = document.getElementById("speech-feedback-box");
+          if (feedbackBox) {
+            feedbackBox.className = "mt-2 w-full max-w-xl mx-auto px-4 py-2 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-900 text-xs sm:text-sm font-extrabold text-center";
+            feedbackBox.innerHTML = `<span>🎙️ Hết giờ nghe rồi — Đậu chạm Micro để đọc lại cho cô nghe nhé!</span>`;
+          }
         }
-      }, 8000);
+      }, 7000);
 
       recognition.onresult = async (event) => {
         if (isStaleSession() || this.speechRecognition !== recognition || hasHandledResult) return;
@@ -2044,20 +2085,22 @@ const LearnScreen = {
     if (!word) return;
 
     try {
-      // Bước A: Nếu từ vựng có âm thanh thực tế -> phát trước 1.0 - 1.2s
+      // Bước A: Phát âm từ tiếng Anh trước tiên trong không gian yên tĩnh (ví dụ: "Dog")
+      await AppState.speakText(word.en, "en");
+      if (this.playSequence !== currentSeq) return;
+
+      // Bước B: Nếu từ vựng có âm thanh thực tế -> phát minh họa êm dịu (0.35) sau khi cô đọc xong
       if (this.hasRealSound(word.id)) {
+        await new Promise(r => setTimeout(r, 150));
+        if (this.playSequence !== currentSeq) return;
         await this.playRealSound(word.id);
         if (this.playSequence !== currentSeq) return;
-        // Khoảng nghỉ ngắn 150ms để âm thanh thực tế lắng xuống
+        // Khoảng nghỉ ngắn 150ms trước khi cô nhắc tiếp
         await new Promise(r => setTimeout(r, 150));
         if (this.playSequence !== currentSeq) return;
       }
 
-      // Bước B: Phát âm từ tiếng Anh (ví dụ: "Dog")
-      await AppState.speakText(word.en, "en");
-      if (this.playSequence !== currentSeq) return;
-
-      // Bước C: Ngay khi tiếng Anh vừa kết thúc, phát tiếp câu tiếng Việt: "Đậu đọc lại theo cô nào!"
+      // Bước C: Ngay khi tiếng Anh & tiếng động kết thúc, phát tiếp câu tiếng Việt: "Đậu đọc lại theo cô nào!"
       await AppState.speakText("Đậu đọc lại theo cô nào!", "vi");
     } finally {
       if (this.playSequence === currentSeq) {

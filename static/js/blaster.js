@@ -469,12 +469,23 @@ const BlasterScreen = {
     const rec = this.speechRecognition;
     this.speechRecognition = null;
     this.isListening = false;
+    if (window.AppState) {
+      AppState.isSpeechRecording = false;
+    }
     if (rec) {
-      try { rec.onresult = null; rec.onerror = null; rec.onend = null; } catch (e) {}
+      try {
+        rec.onstart = null;
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+      } catch (e) {}
       try { rec.abort(); } catch (e) {}
     }
     if (!silent) {
       this.updateMicButtonUI(false);
+      if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+        AppState.restoreAfterSpeechRecognition();
+      }
     }
   },
 
@@ -518,11 +529,16 @@ const BlasterScreen = {
       rec.maxAlternatives = 5;
       this.speechRecognition = rec;
 
+      // Watchdog 7000ms: tự đặt lại isListening = false & khôi phục nút Micro nếu Safari nuốt mất onend
       this.speechTimeoutTimer = setTimeout(() => {
-        if (sessionId === this.speechSessionId && this.speechRecognition === rec) {
-          try { rec.stop(); } catch (e) {}
+        if (sessionId === this.speechSessionId && this.isListening) {
+          this.stopSpeechRecognition(false);
+          if (window.AppState && typeof AppState.restoreAfterSpeechRecognition === "function") {
+            AppState.restoreAfterSpeechRecognition(appSessionId);
+          }
+          this.setBanner("🎙️ Hết giờ nghe rồi — Đậu chạm Micro đọc lại để bắn laser nhé!");
         }
-      }, 7500);
+      }, 7000);
 
       rec.onresult = async (event) => {
         if (sessionId !== this.speechSessionId || !this.isActive || hasHandledResult) return;

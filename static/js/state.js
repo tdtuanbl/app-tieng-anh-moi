@@ -10,6 +10,7 @@ const AppState = {
   audioCtx: null,
   playSequence: 0,
   speechSessionId: 0,
+  isSpeechRecording: false,
 
   // Trạng thái tải âm thanh & tải dữ liệu
   isAudioLoading: false,
@@ -196,8 +197,15 @@ const AppState = {
   prepareForSpeechRecognition() {
     this.speechSessionId = (this.speechSessionId || 0) + 1;
     const currentSessionId = this.speechSessionId;
+    this.isSpeechRecording = true;
     this.playSequence = (this.playSequence || 0) + 1;
     this.stopAudio();
+
+    if (window.speechSynthesis && typeof window.speechSynthesis.cancel === "function") {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
 
     if (window.LearnScreen) {
       window.LearnScreen.playSequence = (window.LearnScreen.playSequence || 0) + 1;
@@ -221,8 +229,15 @@ const AppState = {
     return currentSessionId;
   },
 
-  // Khôi phục lại AudioContext ngay sau khi thu âm kết thúc (chỉ phiên hiện hành mới được thực thi)
+  // Khôi phục lại AudioContext & giải phóng cờ ghi âm an toàn (không để kẹt cờ nếu sessionId hết hạn)
   async restoreAfterSpeechRecognition(sessionId) {
+    const anyListening = !!(
+      (window.LearnScreen && window.LearnScreen.isListening) ||
+      (window.BlasterScreen && window.BlasterScreen.isListening)
+    );
+    if (typeof sessionId !== "number" || sessionId === this.speechSessionId || !anyListening) {
+      this.isSpeechRecording = false;
+    }
     if (typeof sessionId === "number" && sessionId !== this.speechSessionId) {
       return;
     }
@@ -230,7 +245,7 @@ const AppState = {
       [this.audioCtx, window.LearnScreen && window.LearnScreen.audioCtx].filter(Boolean)
     );
     for (const ctx of contexts) {
-      if (ctx.state === "suspended") {
+      if (ctx.state === "suspended" || ctx.state === "interrupted") {
         try {
           await ctx.resume();
         } catch (e) {}
@@ -240,7 +255,7 @@ const AppState = {
 
   // Phát âm thanh TTS qua backend (Singleton Audio Player chống nghẽn & có Loading State)
   async speakText(text, lang = "en") {
-    if (!text) return;
+    if (!text || this.isSpeechRecording) return;
     try {
       this.stopAudio();
       this.notifyAudioState(true, false);
