@@ -311,15 +311,20 @@ const AppState = {
     }
   },
 
-  // Điều hướng chuyển 4 màn hình
+  // Điều hướng chuyển 5 màn hình
   showScreen(screenId) {
     if (screenId !== "screen-learn" && window.LearnScreen) {
       if (typeof window.LearnScreen.stopSpeechRecognition === "function") {
         window.LearnScreen.stopSpeechRecognition(true);
       }
     }
+    if (screenId !== "screen-blaster" && window.BlasterScreen) {
+      if (typeof window.BlasterScreen.cleanup === "function") {
+        window.BlasterScreen.cleanup();
+      }
+    }
 
-    const screens = ["screen-home", "screen-learn", "screen-quiz", "screen-racer"];
+    const screens = ["screen-home", "screen-learn", "screen-quiz", "screen-racer", "screen-blaster"];
     screens.forEach(id => {
       const el = document.getElementById(id);
       if (el) {

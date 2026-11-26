@@ -345,6 +345,11 @@ const HomeScreen = {
               <span class="text-2xl sm:text-3xl" aria-hidden="true">🏎️</span>
               <span>Đua xe 3 làn đường</span>
             </button>
+
+            <button onclick="HomeScreen.startActivity('blaster')" aria-label="Hoạt động Phi Thuyền Phá Thiên Thạch cùng cô" class="w-full py-4 px-6 rounded-3xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 text-white font-black text-lg sm:text-xl shadow-lg shadow-indigo-200/50 flex items-center justify-center gap-3.5 transition-all cursor-pointer">
+              <span class="text-2xl sm:text-3xl" aria-hidden="true">🚀</span>
+              <span>Phi Thuyền Phá Thiên Thạch</span>
+            </button>
           </div>
 
           <!-- Nút Quay lại -->
@@ -452,6 +457,11 @@ const HomeScreen = {
       AppState.showScreen("screen-racer");
       if (window.RacerScreen && typeof window.RacerScreen.start === "function") {
         window.RacerScreen.start();
+      }
+    } else if (type === "blaster") {
+      AppState.showScreen("screen-blaster");
+      if (window.BlasterScreen && typeof window.BlasterScreen.start === "function") {
+        window.BlasterScreen.start(AppState.currentTopic);
       }
     }
   }
