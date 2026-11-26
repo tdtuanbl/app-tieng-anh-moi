@@ -1746,12 +1746,12 @@ const LearnScreen = {
         </div>
 
         <!-- 2. THẺ FLASHCARD 3D TƯƠNG TÁC (3D FLIP CARD) -->
-        <div class="flex-1 flex flex-col items-center justify-center my-1 sm:my-2 w-full px-2">
-          <div id="flashcard-wrap" class="flashcard-3d-wrap w-full max-w-xs sm:max-w-md h-[340px] sm:h-[390px] mx-auto cursor-pointer select-none">
+        <div class="flex-1 flex flex-col items-center justify-center my-0.5 sm:my-1 w-full px-2">
+          <div id="flashcard-wrap" class="flashcard-3d-wrap w-full max-w-xs sm:max-w-md h-[285px] sm:h-[325px] md:h-[340px] mx-auto cursor-pointer select-none">
             <div id="flashcard-inner" class="flashcard-3d-inner ${this.isFlipped ? 'is-flipped' : ''}" onclick="LearnScreen.toggleFlip()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();LearnScreen.toggleFlip();}" aria-label="Thẻ học từ vựng ${word.en}">
               
               <!-- MẶT TRƯỚC (ĐOÁN HÌNH - BẬT PHẢN XẠ NHỚ TỪ) -->
-              <div class="flashcard-face flashcard-front bg-white rounded-[2.5rem] p-4 sm:p-5 shadow-xl border-4 border-amber-200 hover:border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
+              <div class="flashcard-face flashcard-front bg-white rounded-[2.25rem] p-3 sm:p-4 shadow-xl border-4 border-amber-200 hover:border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
                 <!-- Tiêu đề gợi mở mặt trước -->
                 <div class="w-full flex items-center justify-between px-2">
                   <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-black text-xs flex items-center gap-1">
@@ -1763,35 +1763,35 @@ const LearnScreen = {
 
                 <!-- Khung hình ảnh thật cỡ lớn sắc nét -->
                 ${word.image_url ? `
-                  <div class="w-44 h-44 sm:w-56 sm:h-56 my-auto rounded-3xl overflow-hidden shadow-inner border border-slate-100 bg-slate-50/50 p-2 flex items-center justify-center relative">
+                  <div class="w-36 h-36 sm:w-44 sm:h-44 my-auto rounded-3xl overflow-hidden shadow-inner border border-slate-100 bg-slate-50/50 p-1.5 flex items-center justify-center relative">
                     <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-2xl transition-transform duration-300 hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                    <div style="display:none;" class="w-full h-full items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md" aria-hidden="true">
+                    <div style="display:none;" class="w-full h-full items-center justify-center text-6xl sm:text-7xl filter drop-shadow-md" aria-hidden="true">
                       ${word.visual}
                     </div>
                   </div>
                 ` : `
-                  <div class="w-44 h-44 sm:w-56 sm:h-56 my-auto flex items-center justify-center text-7xl sm:text-8xl filter drop-shadow-md hover:scale-110 transition-transform" aria-hidden="true">
+                  <div class="w-36 h-36 sm:w-44 sm:h-44 my-auto flex items-center justify-center text-6xl sm:text-7xl filter drop-shadow-md hover:scale-110 transition-transform" aria-hidden="true">
                     ${word.visual}
                   </div>
                 `}
 
                 <!-- Nút nghe âm thanh thực tế nếu từ có hiệu ứng -->
                 ${this.hasRealSound(word.id) ? `
-                  <button id="btn-front-sound" onclick="event.stopPropagation(); LearnScreen.handleFrontSoundClick('${word.id}')" class="my-1 py-1 px-3.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/60 z-10" aria-label="Nghe âm thanh thực tế">
+                  <button id="btn-front-sound" onclick="event.stopPropagation(); LearnScreen.handleFrontSoundClick('${word.id}')" class="my-0.5 py-1 px-3.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-white/60 z-10" aria-label="Nghe âm thanh thực tế">
                     <span>🔊</span>
                     <span>${["vehicles", "transport"].includes(AppState.currentTopic?.id) ? "Nghe còi / động cơ xe" : "Nghe tiếng kêu bạn ấy"}</span>
                   </button>
                 ` : ''}
 
                 <!-- Nhãn gợi ý chạm tay lật thẻ & nghe đọc -->
-                <div class="py-1.5 px-4 rounded-full bg-amber-50 text-amber-800 font-black text-xs sm:text-sm border border-amber-200/80 shadow-sm animate-pulse flex items-center gap-1.5">
+                <div class="py-1 px-3.5 rounded-full bg-amber-50 text-amber-800 font-black text-xs border border-amber-200/80 shadow-sm animate-pulse flex items-center gap-1.5">
                   <span>👆</span>
                   <span>Chạm vào hình để xem từ & nghe cô đọc!</span>
                 </div>
               </div>
 
               <!-- MẶT SAU (TỪ VỰNG TIẾNG ANH & NGHĨA TIẾNG VIỆT) -->
-              <div class="flashcard-face flashcard-back bg-gradient-to-b from-amber-50/70 via-white to-amber-50/40 rounded-[2.5rem] p-4 sm:p-5 shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
+              <div class="flashcard-face flashcard-back bg-gradient-to-b from-amber-50/70 via-white to-amber-50/40 rounded-[2.25rem] p-3 sm:p-4 shadow-2xl border-4 border-amber-300 flex flex-col items-center justify-between text-center transition-all duration-300 hover:scale-[1.01] active:scale-95">
                 <!-- Tiêu đề mặt sau -->
                 <div class="w-full flex items-center justify-between px-2">
                   <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 font-black text-xs flex items-center gap-1">
@@ -1806,24 +1806,24 @@ const LearnScreen = {
 
                 <!-- Hình ảnh thu gọn -->
                 ${word.image_url ? `
-                  <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-sm border border-amber-100 bg-white p-1 flex items-center justify-center relative mt-1">
+                  <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-sm border border-amber-100 bg-white p-1 flex items-center justify-center relative mt-0.5">
                     <img src="${word.image_url}" alt="${word.en}" class="w-full h-full object-contain rounded-xl" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                    <div style="display:none;" class="w-full h-full items-center justify-center text-5xl sm:text-6xl filter drop-shadow-sm" aria-hidden="true">
+                    <div style="display:none;" class="w-full h-full items-center justify-center text-5xl filter drop-shadow-sm" aria-hidden="true">
                       ${word.visual}
                     </div>
                   </div>
                 ` : `
-                  <div class="w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center text-5xl sm:text-6xl filter drop-shadow-sm mt-1" aria-hidden="true">
+                  <div class="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center text-5xl filter drop-shadow-sm mt-0.5" aria-hidden="true">
                     ${word.visual}
                   </div>
                 `}
 
                 <!-- Từ tiếng Anh in đậm sắc nét cỡ lớn -->
                 <div class="my-auto flex flex-col items-center">
-                  <h2 class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-800 tracking-tight capitalize">
+                  <h2 class="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight capitalize">
                     ${word.en}
                   </h2>
-                  <p class="text-lg sm:text-xl font-black text-amber-700 mt-1">
+                  <p class="text-base sm:text-xl font-black text-amber-700 mt-0.5">
                     ${word.vi}
                   </p>
                 </div>
@@ -1838,26 +1838,26 @@ const LearnScreen = {
           </div>
 
           <!-- NÚT HÀNH ĐỘNG CHÍNH (HERO ACTION): NGHE CÔ ĐỌC & GÓC BÉ TẬP NÓI -->
-          <div class="w-full flex flex-col items-center mt-2.5 sm:mt-3 px-1">
+          <div class="w-full flex flex-col items-center mt-2 sm:mt-2.5 px-1">
             <div class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
-              <button id="btn-hero-speak" onclick="LearnScreen.handleHeroSpeak()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-base sm:text-lg shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-2.5 transition-all cursor-pointer">
+              <button id="btn-hero-speak" onclick="LearnScreen.handleHeroSpeak()" aria-label="Chạm để nghe cô đọc từ ${word.en}" class="w-full sm:flex-1 py-3 sm:py-3.5 px-5 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-base sm:text-lg shadow-lg shadow-amber-300/50 border-2 border-white flex items-center justify-center gap-2.5 transition-all cursor-pointer">
                 <span id="hero-speak-icon" class="text-xl sm:text-2xl" aria-hidden="true">🔊</span>
                 <span id="hero-speak-text">${this.isFlipped ? "Nghe lại cô đọc" : "Chạm để nghe cô đọc"}</span>
               </button>
 
-              <button id="btn-speak-practice" onclick="LearnScreen.toggleSpeechPractice()" aria-label="Chạm để Đậu nói thử và chấm điểm phát âm" class="w-full sm:flex-1 py-3.5 sm:py-4 px-5 rounded-3xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 active:scale-95 text-white font-black text-base sm:text-lg shadow-lg shadow-pink-300/50 border-2 border-white flex items-center justify-center gap-2 transition-all cursor-pointer">
+              <button id="btn-speak-practice" onclick="LearnScreen.toggleSpeechPractice()" aria-label="Chạm để Đậu nói thử và chấm điểm phát âm" class="w-full sm:flex-1 py-3 sm:py-3.5 px-5 rounded-3xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 active:scale-95 text-white font-black text-base sm:text-lg shadow-lg shadow-pink-300/50 border-2 border-white flex items-center justify-center gap-2 transition-all cursor-pointer">
                 <span class="text-xl sm:text-2xl" aria-hidden="true">🎙️</span>
                 <span>Đậu nói thử nào!</span>
               </button>
             </div>
 
             <!-- Thanh phản hồi sóng âm & chấm điểm phát âm -->
-            <div id="speech-feedback-box" class="mt-2 w-full max-w-xl mx-auto text-center text-xs sm:text-sm font-bold text-slate-500"></div>
+            <div id="speech-feedback-box" class="mt-1.5 w-full max-w-xl mx-auto text-center text-xs sm:text-sm font-bold text-slate-500"></div>
           </div>
         </div>
 
         <!-- 3. KHU VỰC ĐIỀU KHIỂN DƯỚI ĐÁY: PHỤ HUYNH XÁC NHẬN & CHUYỂN TỪ -->
-        <div class="flex flex-col items-center gap-2 pb-1 w-full shrink-0">
+        <div class="flex flex-col items-center gap-1.5 pb-2 w-full shrink-0">
           <!-- Nút phụ huynh xác nhận bé đã đọc chuẩn để thưởng sao -->
           <button id="btn-confirm-correct" onclick="LearnScreen.confirmCorrect()" aria-label="Bố mẹ xác nhận bé đọc chuẩn để thưởng sao" class="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base shadow-md shadow-emerald-200/50 flex items-center gap-2 border-2 border-white transition-all cursor-pointer">
             <span aria-hidden="true">✅</span>

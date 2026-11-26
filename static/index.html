@@ -15,11 +15,23 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Chống chọn text ngẫu nhiên, cho phép cuộn tự nhiên trên mobile */
+    /* Chống chọn text ngẫu nhiên, tối ưu chạm 0ms trên iPad Safari */
     html, body {
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
+    }
+    button, [role="button"], a {
+      touch-action: manipulation;
+    }
+
+    /* Tôn trọng thiết lập giảm chuyển động của hệ thống */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
 
     /* Hiệu ứng sóng âm thanh khi đang phát TTS */
@@ -48,10 +60,10 @@
 
   <!-- TOP BAR RESPONSIVE CHO CẢ ĐIỆN THOẠI & IPAD -->
   <header class="min-h-[4.5rem] py-2 px-3 sm:px-6 bg-white/90 backdrop-blur-md border-b border-amber-100 flex flex-wrap items-center justify-between gap-2 shadow-sm z-30 shrink-0">
-    <!-- Góc trái: Avatar + Lời chào + Đếm Sao -->
-    <div class="flex items-center gap-2.5 sm:gap-4">
-      <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-xl sm:text-2xl shadow-sm border-2 border-white shrink-0" aria-hidden="true">
-        🌱
+    <!-- Góc trái: Avatar + Lời chào + Đếm Sao + 1 nút Huy hiệu duy nhất -->
+    <div class="flex items-center gap-2.5 sm:gap-3.5">
+      <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-xl sm:text-2xl shadow-sm border-2 border-white shrink-0" aria-hidden="true">
+        🥑
       </div>
       <div class="flex flex-col">
         <span class="font-extrabold text-base sm:text-lg text-slate-800 tracking-tight flex items-center gap-1">
@@ -63,8 +75,8 @@
             <span id="star-count">0</span>
             <span class="text-[11px] sm:text-xs font-semibold text-yellow-700">sao</span>
           </div>
-          <button id="btn-header-badge" onclick="HomeScreen.openBadgeModal()" aria-label="Mở bộ sưu tập huy hiệu của bé Đậu" class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-slate-900 font-black text-xs shadow-sm border border-white flex items-center gap-1 active:scale-95 transition-all cursor-pointer">
-            <span>🏆</span>
+          <button type="button" id="btn-header-badge" onclick="HomeScreen.openBadgeModal()" aria-label="Mở bộ sưu tập huy hiệu của bé Đậu" class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-slate-900 font-black text-xs shadow-sm border border-white flex items-center gap-1 active:scale-95 transition-all cursor-pointer">
+            <span aria-hidden="true">🏆</span>
             <span id="header-badge-count">Huy hiệu (0/8)</span>
           </button>
         </div>
@@ -122,12 +134,12 @@
   </main>
 
   <!-- Script Khởi tạo -->
-  <script src="/static/js/state.js?v=36"></script>
-  <script src="/static/js/home.js?v=36"></script>
-  <script src="/static/js/learn.js?v=36"></script>
-  <script src="/static/js/quiz.js?v=36"></script>
-  <script src="/static/js/racer.js?v=36"></script>
-  <script src="/static/js/blaster.js?v=36"></script>
+  <script src="/static/js/state.js?v=39"></script>
+  <script src="/static/js/home.js?v=39"></script>
+  <script src="/static/js/learn.js?v=39"></script>
+  <script src="/static/js/quiz.js?v=39"></script>
+  <script src="/static/js/racer.js?v=39"></script>
+  <script src="/static/js/blaster.js?v=39"></script>
   <script>
     // Mở khóa AudioContext và quyền phát âm thanh trên Safari iPadOS
     function unlockAudioAndStart() {

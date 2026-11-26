@@ -282,13 +282,20 @@ const BlasterScreen = {
 
       this.ship.x = Math.max(92, Math.min(165, this.width * 0.16));
       this.ship.baseY = this.height * 0.5;
-      this.asteroid.targetX = Math.max(this.width * 0.66, this.ship.x + 220);
-      this.asteroid.y = this.height * 0.44;
       this.asteroid.radius = Math.max(52, Math.min(78, Math.min(this.width, this.height) * 0.16));
+      this.asteroid.targetX = this.computeAsteroidTargetX();
+      if (this.asteroid.visible) {
+        this.asteroid.x = Math.min(this.asteroid.x, this.width - this.asteroid.radius - 32);
+        if (this.asteroid.x < this.asteroid.targetX) {
+          this.asteroid.x = this.asteroid.targetX;
+        }
+      }
+      this.asteroid.y = this.height * 0.44;
     };
 
     this._onResize = resize;
     window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", resize);
     resize();
 
     // Tạo bầu trời sao 3 lớp (parallax depth)
@@ -328,6 +335,12 @@ const BlasterScreen = {
     this.imageCache.set(word.id, entry);
   },
 
+  computeAsteroidTargetX() {
+    const safeMax = this.width - this.asteroid.radius - 32;
+    const safeMin = this.ship.x + this.asteroid.radius + 90;
+    return Math.max(safeMin, Math.min(this.width * 0.72, safeMax));
+  },
+
   loadCurrentTarget() {
     const word = this.words[this.currentIndex];
     if (!word) return;
@@ -335,9 +348,9 @@ const BlasterScreen = {
     this.isFiring = false;
     this.isDestroyed = false;
 
-    // Thiên thạch bắt đầu bên phải, trôi từ từ và dừng ở vùng an toàn
+    // Thiên thạch bắt đầu bên phải, bay vào dứt khoát và dừng ở vùng an toàn
     this.asteroid.x = this.width + this.asteroid.radius + 40;
-    this.asteroid.targetX = Math.max(this.width * 0.70, this.ship.x + 230);
+    this.asteroid.targetX = this.computeAsteroidTargetX();
     this.asteroid.y = this.height * 0.44;
     this.asteroid.scale = 1;
     this.asteroid.hitShake = 0;
@@ -954,11 +967,12 @@ const BlasterScreen = {
     this.ship.recoil = Math.max(0, this.ship.recoil - dt * 42);
     this.ship.flash = Math.max(0, this.ship.flash - dt * 6);
 
-    // 3. Thiên thạch trôi từ từ vào vùng an toàn (không bao giờ đâm tàu)
+    // 3. Thiên thạch bay vào ~420 px/s và tự động dừng êm ái ở vùng an toàn (không bao giờ đâm tàu)
     if (this.asteroid.visible) {
       if (this.asteroid.x > this.asteroid.targetX) {
-        this.asteroid.x = Math.max(this.asteroid.targetX, this.asteroid.x - 165 * dt);
+        this.asteroid.x = Math.max(this.asteroid.targetX, this.asteroid.x - 420 * dt);
       }
+      this.asteroid.x = Math.min(this.asteroid.x, Math.max(this.asteroid.targetX, this.width - this.asteroid.radius - 32));
       this.asteroid.rot += this.asteroid.rotSpeed * dt;
       this.asteroid.hitShake = Math.max(0, this.asteroid.hitShake - dt * 2.4);
       const shakeY = this.asteroid.hitShake > 0 ? Math.sin(timeSec * 55) * 9 * this.asteroid.hitShake : 0;
@@ -1455,6 +1469,7 @@ const BlasterScreen = {
     }
     if (this._onResize) {
       window.removeEventListener("resize", this._onResize);
+      window.removeEventListener("orientationchange", this._onResize);
       this._onResize = null;
     }
     this.projectiles = [];

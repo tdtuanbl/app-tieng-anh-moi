@@ -611,10 +611,10 @@ const QuizScreen = {
             <span>Chủ đề</span>
           </button>
 
-          <!-- Nút Loa to & Câu hỏi nổi bật kiêm Loading state -->
-          <button id="btn-quiz-speak" onclick="QuizScreen.playQuestionPrompt()" aria-label="Nghe cô đọc lại câu hỏi" class="px-4 md:px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-sm sm:text-base md:text-xl shadow-md flex items-center gap-2 md:gap-3 transition-all truncate max-w-[55%] cursor-pointer">
-            <span id="quiz-speak-icon" class="text-xl md:text-2xl" aria-hidden="true">🔊</span>
-            <span id="quiz-question-text" class="truncate">Đậu ơi, hình nào là...?</span>
+          <!-- Nút Loa to & Câu hỏi nổi bật kiêm Loading state (không cắt cụt từ dài) -->
+          <button type="button" id="btn-quiz-speak" onclick="QuizScreen.playQuestionPrompt()" aria-label="Nghe cô đọc lại câu hỏi" class="px-4 md:px-6 py-2 rounded-3xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-900 font-black text-sm sm:text-base md:text-lg shadow-md flex items-center justify-center gap-2 md:gap-2.5 transition-all max-w-full sm:max-w-[60%] cursor-pointer">
+            <span id="quiz-speak-icon" class="text-xl md:text-2xl shrink-0" aria-hidden="true">🔊</span>
+            <span id="quiz-question-text" class="whitespace-normal break-words leading-tight text-center">Đậu ơi, hình nào là...?</span>
           </button>
 
           <!-- Bộ chọn chủ đề (kèm lựa chọn 🎲 Tất cả chủ đề) -->
@@ -863,30 +863,27 @@ const QuizScreen = {
     if (gridEl) {
       gridEl.innerHTML = this.options.map((opt, idx) => {
         const visualContent = opt.image_url ? `
-          <div class="w-full h-36 md:h-44 rounded-2xl overflow-hidden bg-white p-1 flex items-center justify-center relative mb-2 shadow-inner border border-slate-100">
+          <div class="w-full h-44 sm:h-48 md:h-52 rounded-2xl overflow-hidden bg-white p-1 flex items-center justify-center relative mb-1.5 shadow-inner border border-slate-100">
             <img src="${opt.image_url}" alt="${opt.en}" class="w-full h-full object-contain rounded-2xl transition-transform duration-300 group-hover:scale-105" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-            <div style="display:none;" class="w-full h-full items-center justify-center text-6xl md:text-7xl filter drop-shadow-sm">
+            <div style="display:none;" class="w-full h-full items-center justify-center text-7xl md:text-8xl filter drop-shadow-sm">
               ${opt.visual}
             </div>
           </div>
         ` : `
-          <div class="w-full h-36 md:h-44 flex items-center justify-center text-7xl md:text-8xl filter drop-shadow-sm group-hover:scale-110 transition-transform mb-2">
+          <div class="w-full h-44 sm:h-48 md:h-52 flex items-center justify-center text-7xl sm:text-8xl md:text-9xl filter drop-shadow-sm group-hover:scale-110 transition-transform mb-1.5">
             ${opt.visual}
           </div>
         `;
 
         return `
-          <div id="quiz-card-${idx}" onclick="QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}')"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}');}"
-               role="button"
-               tabindex="0"
+          <button type="button" id="quiz-card-${idx}" onclick="QuizScreen.handleSelect('${opt.id}', 'quiz-card-${idx}')"
                aria-label="Hình ${opt.en}, nghĩa là ${opt.vi}"
-               class="group bg-white rounded-[2rem] border-4 border-slate-100 hover:border-amber-300 focus-visible:ring-4 focus-visible:ring-amber-400 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-2.5 sm:p-3 text-center overflow-hidden">
+               class="group w-full bg-white rounded-[2rem] border-4 border-slate-100 hover:border-amber-300 focus-visible:ring-4 focus-visible:ring-amber-400 shadow-md active:scale-95 transition-all duration-150 cursor-pointer flex flex-col items-center justify-center p-2 sm:p-2.5 text-center overflow-hidden">
             ${visualContent}
             <span class="text-lg sm:text-xl md:text-2xl font-black text-slate-800 capitalize leading-tight">
               ${opt.en}
             </span>
-          </div>
+          </button>
         `;
       }).join("");
     }

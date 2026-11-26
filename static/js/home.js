@@ -165,10 +165,8 @@ const HomeScreen = {
       const percent = Math.min(100, Math.round((count / total) * 100));
 
       return `
-        <div onclick="HomeScreen.openTopicModal('${topic.id}')"
-             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();HomeScreen.openTopicModal('${topic.id}');}"
-             role="button"
-             tabindex="0"
+        <button type="button"
+             onclick="HomeScreen.openTopicModal('${topic.id}')"
              aria-label="Chủ đề ${topic.title}. Đã học ${count} trên ${total} từ."
              class="group relative bg-white rounded-[1.75rem] p-3 md:p-3.5 shadow-sm hover:shadow-xl border-2 border-amber-100/80 hover:border-amber-300 focus-visible:ring-4 focus-visible:ring-amber-400 transition-all duration-200 cursor-pointer flex flex-col items-center justify-between active:scale-95 text-center w-[calc(50%-0.5rem)] sm:w-[calc(50%-0.6rem)] md:w-[calc(25%-1rem)] max-w-[245px] shrink-0">
           <!-- Icon lớn sắc nét -->
@@ -176,66 +174,51 @@ const HomeScreen = {
             ${topic.icon || '📚'}
           </div>
           
-          <!-- Tên chủ đề -->
-          <h3 class="text-base md:text-lg font-black text-slate-800 mb-1 leading-tight line-clamp-1">${topic.title}</h3>
+          <!-- Tên chủ đề (hiển thị trọn vẹn 2 dòng, không cắt chữ) -->
+          <h3 class="w-full text-center text-base md:text-lg font-black text-slate-800 mb-1 leading-snug line-clamp-2 min-h-[2.4rem] flex items-center justify-center">${topic.title}</h3>
           
           <!-- Thanh tiến độ đã học -->
           <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/80">
             <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-300" style="width: ${percent}%"></div>
           </div>
           <span class="text-[11px] font-bold text-slate-500 mt-0.5">Đã học: ${count}/${total} từ</span>
-        </div>
+        </button>
       `;
     }).join("");
 
     container.innerHTML = `
       <div class="w-full h-full flex flex-col justify-between max-w-6xl mx-auto py-1 sm:py-2">
         
-        <!-- 1. KHUNG CHÀO MỪNG ĐỒNG HÀNH & DANH HIỆU CẤP ĐỘ CỦA BÉ ĐẬU -->
-        <div class="w-full bg-gradient-to-r from-amber-100/95 via-yellow-50 to-amber-100/95 rounded-[2rem] p-3 sm:p-4 mb-2 shadow-md border-2 border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <!-- 1. THANH DANH HIỆU & TIẾN TRÌNH CẤP ĐỘ TINH GỌN (ĐÃ BỎ LỜI CHÀO & NÚT HUY HIỆU TRÙNG LẶP) -->
+        <div class="w-full bg-gradient-to-r from-amber-100/95 via-yellow-50 to-amber-100/95 rounded-[1.75rem] px-3.5 py-2.5 sm:px-5 sm:py-3 mb-2 shadow-sm border-2 border-amber-200/80 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
           
-          <!-- Cụm trái: Avatar Đậu chở em + Lời chào cô giáo + Danh hiệu -->
+          <!-- Cụm trái: Avatar Đậu chở em + Danh hiệu cấp độ -->
           <div class="flex items-center gap-3 w-full sm:w-auto">
-            <!-- Ảnh thu nhỏ Bé Đậu đạp xe chở em -->
-            <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white shadow-md border-2 border-amber-300 p-1 flex items-center justify-center shrink-0">
+            <div class="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-sm border-2 border-amber-300 p-1 flex items-center justify-center shrink-0">
               <img src="/static/images/dau-cho-em.png" alt="Bé Đậu đạp xe chở em" class="w-full h-full object-contain filter drop-shadow-sm" />
-              <span class="absolute -bottom-1 -right-1 text-sm sm:text-base" title="Cô giáo đồng hành">👩‍🏫</span>
+              <span class="absolute -bottom-1 -right-1 text-sm" title="Cô giáo đồng hành">👩‍🏫</span>
             </div>
 
             <div class="flex flex-col min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <h2 class="text-base sm:text-lg font-black text-slate-800 tracking-tight">Chào bé Đậu! 🥑</h2>
-                <span class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-200 to-yellow-200 text-amber-900 font-black text-xs border border-amber-300 shadow-sm flex items-center gap-1">
-                  <span>🎖️</span>
-                  <span>${levelInfo.title}</span>
-                </span>
-              </div>
-              <p class="text-xs sm:text-sm font-bold text-slate-600 line-clamp-1 mt-0.5">
+              <span class="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-200 to-yellow-200 text-amber-900 font-black text-xs sm:text-sm border border-amber-300 shadow-sm inline-flex items-center gap-1 w-fit">
+                <span>🎖️</span>
+                <span>${levelInfo.title}</span>
+              </span>
+              <p class="text-xs sm:text-sm font-bold text-slate-600 mt-1">
                 Hôm nay mình cùng khám phá tiếng Anh nhé! 🚀
               </p>
             </div>
           </div>
 
-          <!-- Cụm phải: Thanh tiến trình cấp độ & Nút Kho Huy hiệu -->
-          <div class="flex items-center gap-2 sm:gap-3.5 w-full sm:w-auto justify-between sm:justify-end flex-wrap sm:flex-nowrap">
-            <!-- Thanh tiến trình lên cấp -->
-            <div class="flex flex-col items-end flex-1 sm:flex-initial min-w-[110px] sm:min-w-[160px]">
-              <div class="flex items-center justify-between w-full text-[10px] sm:text-[11px] font-black text-slate-600 mb-1">
-                <span>Tiến trình cấp độ</span>
-                <span class="text-amber-700 font-extrabold">${levelInfo.level === 4 ? 'ĐÃ ĐẠT MAX' : `${stars}/${levelInfo.next} ⭐`}</span>
-              </div>
-              <div class="w-full bg-white rounded-full h-2.5 overflow-hidden p-0.5 border border-amber-200 shadow-inner">
-                <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm" style="width: ${levelInfo.percent}%"></div>
-              </div>
+          <!-- Cụm phải: Thanh tiến trình lên cấp -->
+          <div class="flex flex-col items-end w-full sm:w-56">
+            <div class="flex items-center justify-between w-full text-[11px] font-black text-slate-600 mb-1">
+              <span>Tiến trình cấp độ</span>
+              <span class="text-amber-700 font-extrabold">${levelInfo.level === 4 ? 'ĐÃ ĐẠT MAX' : `${stars}/${levelInfo.next} ⭐`}</span>
             </div>
-
-            <!-- Nút mở Kho Huy Hiệu & Sticker -->
-            <button onclick="HomeScreen.openBadgeModal()" aria-label="Mở bộ sưu tập huy hiệu của bé Đậu" class="px-2.5 sm:px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 text-slate-900 font-black text-xs sm:text-sm shadow-md border-2 border-white flex items-center gap-1 sm:gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0">
-              <span class="text-base sm:text-lg" aria-hidden="true">🏆</span>
-              <span class="hidden xs:inline">Bộ sưu tập</span>
-              <span class="xs:hidden">Huy hiệu</span>
-              <span>(${unlockedCount}/8)</span>
-            </button>
+            <div class="w-full bg-white rounded-full h-2.5 overflow-hidden p-0.5 border border-amber-200 shadow-inner">
+              <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm" style="width: ${levelInfo.percent}%"></div>
+            </div>
           </div>
         </div>
 
